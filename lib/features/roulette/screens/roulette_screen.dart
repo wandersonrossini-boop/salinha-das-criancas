@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
+import '../../../core/components/image_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RouletteScreen extends StatefulWidget {
@@ -99,7 +100,7 @@ class _RouletteScreenState extends State<RouletteScreen> {
                 if (winnerObj is! String && winnerObj.photoUrl != null && winnerObj.photoUrl!.isNotEmpty)
                   CircleAvatar(
                     radius: 40,
-                    backgroundImage: NetworkImage(winnerObj.photoUrl!) as ImageProvider,
+                    backgroundImage: NetworkImage(ImageHelper.getProxiedImageUrl(winnerObj.photoUrl)) as ImageProvider,
                   ),
                 const SizedBox(height: 16),
                 Text(
@@ -245,7 +246,7 @@ class _RouletteScreenState extends State<RouletteScreen> {
           if (item.photoUrl != null && item.photoUrl!.isNotEmpty) ...[
             CircleAvatar(
               radius: 12,
-              backgroundImage: NetworkImage(item.photoUrl!) as ImageProvider,
+               backgroundImage: NetworkImage(ImageHelper.getProxiedImageUrl(item.photoUrl)) as ImageProvider,
             ),
             const SizedBox(width: 8),
           ],

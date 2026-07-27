@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
+import '../../../core/components/image_helper.dart';
 import '../models/team.dart';
 import '../../students/models/student.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -323,7 +324,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
                                   labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                                   avatar: CircleAvatar(
                                     backgroundImage: s.photoUrl != null && s.photoUrl!.isNotEmpty
-                                        ? NetworkImage(s.photoUrl!)
+                                        ? NetworkImage(ImageHelper.getProxiedImageUrl(s.photoUrl))
                                         : null,
                                     child: s.photoUrl == null || s.photoUrl!.isEmpty
                                         ? Text(s.name[0].toUpperCase(), style: const TextStyle(fontSize: 10))

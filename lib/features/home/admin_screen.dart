@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/db/database_helper.dart';
+import '../../core/components/image_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -365,16 +366,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     },
                     child: Builder(
                       builder: (context) {
-                        String directUrl = '';
-                        if (fotoUrl.contains('drive.google.com')) {
-                          final regExp = RegExp(r'\/d\/([a-zA-Z0-9-_]+)');
-                          final match = regExp.firstMatch(fotoUrl);
-                          if (match != null && match.groupCount >= 1) {
-                            directUrl = 'https://drive.google.com/uc?export=view&id=${match.group(1)}';
-                          }
-                        } else {
-                          directUrl = fotoUrl;
-                        }
+                        String directUrl = ImageHelper.getProxiedImageUrl(fotoUrl);
                         
                         return Container(
                           width: 56,
@@ -540,7 +532,7 @@ class _AdminScreenState extends State<AdminScreen> {
               radius: 24,
               backgroundColor: AppColors.azulCeleste.withOpacity(0.2),
               backgroundImage: student.photoUrl != null && student.photoUrl!.isNotEmpty
-                  ? NetworkImage(student.photoUrl!)
+                  ? NetworkImage(ImageHelper.getProxiedImageUrl(student.photoUrl))
                   : null,
               child: student.photoUrl == null || student.photoUrl!.isEmpty
                   ? Text(student.name[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.azulCeleste))

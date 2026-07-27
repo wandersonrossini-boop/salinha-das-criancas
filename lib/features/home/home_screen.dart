@@ -14,6 +14,7 @@ import '../auth/screens/login_screen.dart';
 import '../ai_planner/models/lesson_plan.dart';
 import '../../core/db/database_helper.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/components/image_helper.dart';
 
 /// Tela Principal com Navegação Reativa e Dashboard Premium Fiel ao Estilo Apple
 class HomeScreen extends StatefulWidget {
@@ -331,15 +332,7 @@ class DashboardContent extends StatelessWidget {
   }
 
   String _getDirectImageUrl(String url) {
-    if (url.contains('drive.google.com')) {
-      final regExp = RegExp(r'\/d\/([a-zA-Z0-9-_]+)');
-      final match = regExp.firstMatch(url);
-      if (match != null && match.groupCount >= 1) {
-        final fileId = match.group(1);
-        return 'https://drive.google.com/uc?export=view&id=$fileId';
-      }
-    }
-    return url;
+    return ImageHelper.getProxiedImageUrl(url);
   }
 
   // --- HEADER SUPERIOR ---

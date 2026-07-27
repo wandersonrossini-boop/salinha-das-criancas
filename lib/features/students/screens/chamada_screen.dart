@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/student.dart';
 import '../../../core/db/database_helper.dart';
+import '../../../core/components/image_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChamadaScreen extends StatefulWidget {
@@ -214,7 +215,7 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                       radius: 36,
                       backgroundColor: Colors.white,
                       backgroundImage: student.photoUrl != null && student.photoUrl!.isNotEmpty
-                          ? NetworkImage(student.photoUrl!) as ImageProvider
+                          ? NetworkImage(ImageHelper.getProxiedImageUrl(student.photoUrl)) as ImageProvider
                           : student.avatarPath != null
                               ? AssetImage(student.avatarPath!) as ImageProvider
                               : null,
