@@ -197,23 +197,55 @@ class _RouletteScreenState extends State<RouletteScreen> {
                         )
                       : Padding(
                           padding: const EdgeInsets.all(32.0),
-                          child: FortuneWheel(
-                            selected: _selected.stream,
-                            animateFirst: false,
-                            items: [
-                              for (var item in _items)
-                                FortuneItem(
-                                  child: _buildItemChild(item),
-                                  style: FortuneItemStyle(
-                                    color: _getColorForItem(item is String ? item : item.name),
-                                    borderColor: Colors.white,
-                                    borderWidth: 2,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: FortuneWheel(
+                              selected: _selected.stream,
+                              animateFirst: false,
+                              indicators: [
+                                FortuneIndicator(
+                                  alignment: Alignment.topCenter,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Transform.translate(
+                                        offset: const Offset(0, 3),
+                                        child: const TriangleIndicator(
+                                          color: Colors.black26,
+                                        ),
+                                      ),
+                                      const TriangleIndicator(
+                                        color: Color(0xFFEF4444),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                            ],
-                            onAnimationEnd: () {
-                              _showWinnerPopup();
-                            },
+                              ],
+                              items: [
+                                for (var item in _items)
+                                  FortuneItem(
+                                    child: _buildItemChild(item),
+                                    style: FortuneItemStyle(
+                                      color: _getColorForItem(item is String ? item : item.name),
+                                      borderColor: Colors.white,
+                                      borderWidth: 2,
+                                    ),
+                                  ),
+                              ],
+                              onAnimationEnd: () {
+                                _showWinnerPopup();
+                              },
+                            ),
                           ),
                         ),
                 ),

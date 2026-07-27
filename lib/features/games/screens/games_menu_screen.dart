@@ -41,7 +41,7 @@ class GamesMenuScreen extends StatelessWidget {
               width: 200,
               height: 200,
               decoration: BoxDecoration(
-                color: const Color(0xFFE0F2FE).withOpacity(0.42),
+                color: const Color(0xFFE0F2FE).withOpacity(0.20),
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
@@ -53,7 +53,7 @@ class GamesMenuScreen extends StatelessWidget {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3E8FF).withOpacity(0.42),
+                color: const Color(0xFFF3E8FF).withOpacity(0.20),
                 borderRadius: BorderRadius.circular(125),
               ),
             ),
@@ -68,9 +68,9 @@ class GamesMenuScreen extends StatelessWidget {
                 Center(
                   child: Column(
                     children: [
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       const Text(
-                        'Escolha a Dinâmica!',
+                        'Escolha uma dinâmica!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: 'Fredoka',
@@ -80,11 +80,11 @@ class GamesMenuScreen extends StatelessWidget {
                           letterSpacing: -0.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Container(
                         constraints: const BoxConstraints(maxWidth: 320),
                         child: const Text(
-                          'Escolha uma dinâmica para tornar sua aula divertida e engajar os alunos.',
+                          'Escolha uma dinâmica para sua aula.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'Nunito',
@@ -98,48 +98,48 @@ class GamesMenuScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 
                 _buildPremiumCard(
                   context,
                   'Quiz Bíblico',
-                  'Perguntas de múltipla escolha para testar o conhecimento.',
+                  'Perguntas bíblicas de múltipla escolha.',
                   '📖✨',
                   [const Color(0xFF1E3A8A), const Color(0xFF3B82F6), const Color(0xFF60A5FA)],
                   '🏆 Competitivo',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen())),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
                   'Sorteio (Roleta)',
-                  'Roleta interativa para sorteios de prêmios ou participantes.',
+                  'Roleta interativa para sorteios e dinâmica.',
                   '🎡🌀',
                   [const Color(0xFFB45309), const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
                   '✨ Sorte',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RouletteScreen())),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
                   'Quem Sou Eu?',
-                  'Jogo de charadas bíblicas. Descubra o personagem com 3 dicas!',
+                  'Descubra o personagem bíblico por dicas.',
                   '🕵️💬',
                   [const Color(0xFF5B21B6), const Color(0xFF8B5CF6), const Color(0xFFA78BFA)],
                   '🧠 Desafio',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CharadasScreen())),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
                   'Cronômetro / Batata Quente',
-                  'Contagem regressiva com alarme para dinâmicas rápidas.',
+                  'Contagem regressiva e batata quente.',
                   '🔥⏱️',
                   [const Color(0xFF991B1B), const Color(0xFFEF4444), const Color(0xFFF87171)],
                   '⏱ Tempo',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CronometroScreen())),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
                   'Jogo da Memória',
@@ -149,17 +149,17 @@ class GamesMenuScreen extends StatelessWidget {
                   '💡 Memória',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoMemoriaScreen())),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
                   'Jogo dos 7 Erros',
-                  'Disputa interativa para encontrar as diferenças.',
+                  'Disputa interativa de encontrar os 7 erros.',
                   '🔍⛵',
                   [const Color(0xFF155E75), const Color(0xFF06B6D4), const Color(0xFF22D3EE)],
                   '👁 Atenção',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoSeteErrosScreen())),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -181,16 +181,16 @@ class GamesMenuScreen extends StatelessWidget {
       onTap: onTap,
       colors: colors,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 11.0),
         child: Row(
           children: [
             // High fidelity 3D style illustrations
             Container(
-              height: 54,
-              width: 54,
+              height: 48,
+              width: 48,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5),
                 boxShadow: [
                   BoxShadow(
@@ -203,7 +203,7 @@ class GamesMenuScreen extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 emojiRepresentation,
-                style: const TextStyle(fontSize: 28),
+                style: const TextStyle(fontSize: 24),
               ),
             ),
             const SizedBox(width: 14),
@@ -225,7 +225,7 @@ class GamesMenuScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                       // Chips premium 20% menores
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -234,7 +234,7 @@ class GamesMenuScreen extends StatelessWidget {
                           badgeText,
                           style: const TextStyle(
                             fontFamily: 'Nunito',
-                            fontSize: 7.5,
+                            fontSize: 9.0,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: 0.1,

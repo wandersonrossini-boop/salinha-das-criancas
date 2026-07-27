@@ -233,15 +233,15 @@ class _QuizScreenState extends State<QuizScreen> {
                   Icon(
                     isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
                     color: isCorrect ? Colors.green : Colors.red,
-                    size: 32,
+                    size: 26,
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    isCorrect ? '✔ Correto!' : '❌ Incorreto!',
+                    isCorrect ? 'Correto!' : 'Incorreto!',
                     style: TextStyle(
                       fontFamily: 'Fredoka',
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
                       color: isCorrect ? Colors.green : Colors.red,
                     ),
                   ),
@@ -291,7 +291,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 },
                 colors: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
                 child: const SizedBox(
-                  height: 52,
+                  height: 58,
                   width: double.infinity,
                   child: Center(
                     child: Text(
@@ -399,7 +399,7 @@ class _QuizScreenState extends State<QuizScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Container(
           width: 500,
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(28),
@@ -414,7 +414,7 @@ class _QuizScreenState extends State<QuizScreen> {
               // Hero Card Premium
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF3B82F6), Color(0xFF1E3A8A)],
@@ -441,7 +441,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               
               const Text('Quantidade de Perguntas', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
               const SizedBox(height: 10),
@@ -458,7 +458,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               
               const Text('Equipe Inicial (Turno Inicial)', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
               const SizedBox(height: 10),
@@ -508,7 +508,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               
               _HoverScaleWrapper(
                 onTap: _startGame,
@@ -519,7 +519,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.play_arrow_rounded, color: Colors.white),
+                      Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
                       SizedBox(width: 8),
                       Text(
                         '▶ Iniciar Quiz',
@@ -569,7 +569,7 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -585,7 +585,7 @@ class _QuizScreenState extends State<QuizScreen> {
           
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: tColor.withOpacity(isTurn ? 0.12 : 0.04),
               borderRadius: BorderRadius.circular(16),
@@ -675,12 +675,12 @@ class _QuizScreenState extends State<QuizScreen> {
           
           // 6. Pergunta
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            constraints: const BoxConstraints(minHeight: 70),
             alignment: Alignment.center,
             child: Text(
               question['question'],
-              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 21, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 23, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               textAlign: TextAlign.center,
             ),
           ),
@@ -700,7 +700,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     onTap: _answered ? () {} : () => _checkAnswer(option),
                     colors: const [Colors.white, Color(0xFFF8FAFC)],
                     child: Container(
-                      height: 60,
+                      height: 68,
                       width: double.infinity,
                       alignment: Alignment.center,
                       child: Text(
@@ -873,18 +873,18 @@ class _AnimatedTimerCircleState extends State<_AnimatedTimerCircle> with SingleT
         alignment: Alignment.center,
         children: [
           SizedBox(
-            width: 60,
-            height: 60,
+            width: 70,
+            height: 70,
             child: CircularProgressIndicator(
               value: widget.timeLeft / 30,
-              strokeWidth: 4.5,
+              strokeWidth: 5.5,
               backgroundColor: Colors.grey.shade200,
               color: widget.timerColor,
             ),
           ),
           Text(
             '${widget.timeLeft}',
-            style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: widget.timerColor),
+            style: TextStyle(fontFamily: 'Fredoka', fontSize: 21, fontWeight: FontWeight.bold, color: widget.timerColor),
           ),
         ],
       ),
