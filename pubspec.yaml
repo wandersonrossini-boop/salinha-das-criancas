@@ -1,0 +1,46 @@
+name: salinha_das_criancas
+description: A Christian platform for children's ministry teachers.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^8.1.3
+  hydrated_bloc: ^9.1.2
+  path_provider: ^2.1.2
+  sqflite: ^2.3.0
+  sqflite_common_ffi_web: ^0.4.2
+  google_fonts: ^6.1.0
+  flutter_fortune_wheel: ^1.2.0
+  url_launcher: ^6.2.4
+  pdf: ^3.10.7
+  printing: ^5.11.1
+  google_generative_ai: ^0.4.4
+  cupertino_icons: ^1.0.6
+  shared_preferences: ^2.2.3
+  http: ^1.6.0
+  audioplayers: ^6.4.0
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.1.0
+  cloud_firestore: ^5.0.0
+  image: ^4.5.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/illustrations/
+    - assets/illustrations/mascot/
+    - assets/images/
+    - assets/mascot/expressions/
+    - assets/mascot/poses/
+    - assets/mascot/actions/

@@ -1,0 +1,648 @@
+import 'package:flutter/material.dart';
+import 'dart:async';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/db/database_helper.dart';
+import '../../teams/models/team.dart';
+
+class JogoMemoriaScreen extends StatefulWidget {
+  const JogoMemoriaScreen({super.key});
+
+  @override
+  State<JogoMemoriaScreen> createState() => _JogoMemoriaScreenState();
+}
+
+class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
+  List<Team> _teams = [];
+  Team? _activeTeam1;
+  Team? _activeTeam2;
+  bool _isTeamVsTeam = true;
+  
+  bool _jogoIniciado = false;
+  int _paresEquipe1 = 0;
+  int _paresEquipe2 = 0;
+
+  Timer? _gameTimer;
+  int _segundosGastos = 0;
+
+  // Bible Card System Illustration Emojis
+  final List<String> _ilustracoesBiblicas = [
+    '📖', // Bíblia
+    '⛵', // Arca de Noé
+    '🕊️', // Pomba
+    '👑', // Coroa
+    '🐟', // Peixe
+    '✝️', // Cruz
+    '🦁', // Leão
+    '🌟', // Estrela
+    '🐑', // Ovelha
+    '🥖', // Pão (Multiplicação)
+    '🎵', // Harpa/Louvor
+    '🔥', // Fogo/Espirito
+  ];
+
+  late List<String> _cartas;
+  List<bool> _reveladas = [];
+  List<bool> _encontradas = [];
+  
+  int? _primeiraCartaIndex;
+  bool _esperando = false;
+  int _paresEncontrados = 0;
+  
+  bool _isTeam1Turn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeams();
+  }
+
+  Future<void> _loadTeams() async {
+    final teams = await DatabaseHelper.instance.fetchAllTeams();
+    setState(() {
+      _teams = teams;
+      if (_teams.isEmpty) {
+        _teams = [
+          Team(id: 0, name: 'Equipe Azul 🔵', color: 0xFF2196F3, points: 0),
+          Team(id: 0, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0),
+        ];
+      } else if (_teams.length == 1) {
+        _teams.add(Team(id: 0, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0));
+      }
+      _activeTeam1 = _teams[0];
+      _activeTeam2 = _teams[1];
+    });
+  }
+
+  void _prepararCartas() {
+    int numPares = 12;
+    int numCartas = numPares * 2;
+    
+    List<String> ilustracoesSelecionadas = _ilustracoesBiblicas.take(numPares).toList();
+    _cartas = [...ilustracoesSelecionadas, ...ilustracoesSelecionadas];
+    _cartas.shuffle();
+    _reveladas = List.filled(numCartas, false);
+    _encontradas = List.filled(numCartas, false);
+    _primeiraCartaIndex = null;
+    _esperando = false;
+    _paresEncontrados = 0;
+    _paresEquipe1 = 0;
+    _paresEquipe2 = 0;
+    _isTeam1Turn = true;
+    _segundosGastos = 0;
+    _gameTimer?.cancel();
+    _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) setState(() => _segundosGastos++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _gameTimer?.cancel();
+    super.dispose();
+  }
+  
+  void _iniciarJogo() {
+    setState(() {
+      _jogoIniciado = true;
+      _prepararCartas();
+    });
+  }
+
+  void _onCartaTap(int index) {
+    if (_esperando || _reveladas[index] || _encontradas[index]) return;
+
+    setState(() {
+      _reveladas[index] = true;
+    });
+
+    if (_primeiraCartaIndex == null) {
+      _primeiraCartaIndex = index;
+    } else {
+      _esperando = true;
+      if (_cartas[_primeiraCartaIndex!] == _cartas[index]) {
+        setState(() {
+          _encontradas[_primeiraCartaIndex!] = true;
+          _encontradas[index] = true;
+          _paresEncontrados++;
+          
+          if (_isTeam1Turn) _paresEquipe1++;
+          else _paresEquipe2++;
+
+          _esperando = false;
+          _primeiraCartaIndex = null;
+        });
+
+        if (_paresEncontrados == 12) {
+          _finalizarJogo();
+        }
+      } else {
+        Timer(const Duration(seconds: 1), () {
+          if (!mounted) return;
+          setState(() {
+            _reveladas[_primeiraCartaIndex!] = false;
+            _reveladas[index] = false;
+            _esperando = false;
+            _primeiraCartaIndex = null;
+            
+            if (_activeTeam2 != null) {
+              _isTeam1Turn = !_isTeam1Turn;
+            }
+          });
+        });
+      }
+    }
+  }
+
+  int _calcularPontosDesafio(int tempoEmSegundos) {
+    const int pontosMaximos = 50;
+    const int pontosMinimos = 10;
+    
+    if (tempoEmSegundos <= 40) return pontosMaximos;
+
+    int tempoExcedente = tempoEmSegundos - 40;
+    int penalidade = (tempoExcedente / 10).ceil() * 10;
+
+    int pontuacaoFinal = pontosMaximos - penalidade;
+    return pontuacaoFinal < pontosMinimos ? pontosMinimos : pontuacaoFinal;
+  }
+
+  Future<void> _finalizarJogo() async {
+    _gameTimer?.cancel();
+    
+    String msg = '';
+    
+    if (_activeTeam1 != null && _activeTeam2 != null && _isTeamVsTeam) {
+      if (_paresEquipe1 > _paresEquipe2) {
+        msg = 'Vencedor: ${_activeTeam1!.name}! (+50 pts)';
+        await _addPoints(_activeTeam1!, 50);
+      } else if (_paresEquipe2 > _paresEquipe1) {
+        msg = 'Vencedor: ${_activeTeam2!.name}! (+50 pts)';
+        await _addPoints(_activeTeam2!, 50);
+      } else {
+        msg = 'Empate técnico! Ambas equipes jogaram muito bem! (+25 pts)';
+        await _addPoints(_activeTeam1!, 25);
+        await _addPoints(_activeTeam2!, 25);
+      }
+    } else if (_activeTeam1 != null) {
+      final pts = _calcularPontosDesafio(_segundosGastos);
+      msg = 'Você concluiu o desafio da memória em $_segundosGastos segundos!\n\n+$pts Pontos ganhos para ${_activeTeam1!.name}!';
+      await _addPoints(_activeTeam1!, pts);
+    }
+    
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: const Column(
+            children: [
+              Text('🎉', style: TextStyle(fontSize: 48)),
+              SizedBox(height: 10),
+              Text('Parabéns!', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 24)),
+              Text('Você encontrou todos!', style: TextStyle(fontFamily: 'Nunito', fontSize: 16, color: AppColors.textSecondary)),
+            ],
+          ),
+          content: Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Nunito', fontSize: 15, fontWeight: FontWeight.bold)),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() => _jogoIniciado = false);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.azulCeleste,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                minimumSize: const Size(180, 48),
+              ),
+              child: const Text('Voltar ao Menu', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+            )
+          ],
+        )
+      );
+    }
+  }
+
+  Future<void> _addPoints(Team team, int pts) async {
+    if (team.id == 0) return;
+    final updated = Team(
+      id: team.id, 
+      name: team.name, 
+      color: team.color, 
+      points: team.points + pts
+    );
+    await DatabaseHelper.instance.updateTeam(updated);
+  }
+
+  void _showHelp() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Regras do Jogo 🧩', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+        content: const Text(
+          '1. Escolha o modo Equipes ou Solo contra o tempo.\n'
+          '2. Toque em duas cartas para virá-las.\n'
+          '3. Se acertar o par, a equipe pontua e continua jogando. Se errar, passa a vez.\n'
+          '4. Quem achar mais pares vence e leva os pontos!'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendi!'),
+          )
+        ],
+      )
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F5F9),
+      appBar: AppBar(
+        title: const Text('Jogo da Memória', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.azulCeleste),
+            onPressed: _showHelp,
+            tooltip: 'Regras',
+          ),
+        ],
+      ),
+      body: _jogoIniciado ? _buildTabuleiro() : _buildSetup(),
+    );
+  }
+
+  Widget _buildSetup() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 16, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.grid_view_rounded, size: 64, color: AppColors.verdePasto),
+              const SizedBox(height: 16),
+              const Text('Modo de Jogo', style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Modo 1: Equipe vs Equipe'),
+                    selected: _isTeamVsTeam,
+                    onSelected: (v) => setState(() => _isTeamVsTeam = true),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Modo 2: Contra o Tempo'),
+                    selected: !_isTeamVsTeam,
+                    onSelected: (v) => setState(() => _isTeamVsTeam = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text('Quem vai jogar?', style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              const SizedBox(height: 24),
+              if (_teams.isEmpty)
+                const Text('Cadastre pelo menos 1 equipe primeiro!', style: TextStyle(color: Colors.red))
+              else if (_isTeamVsTeam && _teams.length < 2)
+                const Text('Cadastre pelo menos 2 equipes para o modo Vs!', style: TextStyle(color: Colors.red))
+              else ...[
+                const Text('Equipe 1', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.azulCeleste)),
+                DropdownButton<Team>(
+                  value: _activeTeam1,
+                  isExpanded: true,
+                  items: _teams.map((Team team) => DropdownMenuItem<Team>(value: team, child: Text(team.name, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (Team? newValue) => setState(() => _activeTeam1 = newValue),
+                ),
+                if (_isTeamVsTeam) ...[
+                  const SizedBox(height: 16),
+                  const Text('Equipe 2', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.laranjaCriativo)),
+                  DropdownButton<Team>(
+                    value: _activeTeam2,
+                    isExpanded: true,
+                    items: _teams.map((Team team) => DropdownMenuItem<Team>(value: team, child: Text(team.name, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                    onChanged: (Team? newValue) => setState(() => _activeTeam2 = newValue),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _iniciarJogo,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Iniciar Jogo!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.verdePasto,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 60),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabuleiro() {
+    final activeColor = _isTeam1Turn ? AppColors.azulCeleste : AppColors.laranjaCriativo;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (_isTeamVsTeam) ...[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(_isTeam1Turn ? '🔵 ' : '🟠 '),
+                          Text(
+                            _isTeam1Turn ? 'Equipe Azul' : 'Equipe Laranja',
+                            style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: activeColor),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _isTeam1Turn ? 'Pares: $_paresEquipe1 / 12' : 'Pares: $_paresEquipe2 / 12',
+                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Desafio Solo',
+                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.verdePasto),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pares: $_paresEncontrados de 12',
+                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: CircularProgressIndicator(
+                        value: (_segundosGastos % 60) / 60,
+                        strokeWidth: 4,
+                        backgroundColor: Colors.grey.shade100,
+                        color: AppColors.azulCeleste,
+                      ),
+                    ),
+                    Text(
+                      '$_segundosGastos',
+                      style: const TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('🐑', style: TextStyle(fontSize: 28)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    _getMascotSpeech(),
+                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: GridView.builder(
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 8.0,
+                  mainAxisSpacing: 8.0,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: _cartas.length,
+                itemBuilder: (context, index) {
+                  final revelada = _reveladas[index];
+                  final encontrada = _encontradas[index];
+                  
+                  return _MemoryCardWidget(
+                    illustration: _cartas[index],
+                    revelada: revelada,
+                    encontrada: encontrada,
+                    onTap: () => _onCartaTap(index),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMascotSpeech() {
+    if (_paresEncontrados == 0) return 'Toque nas cartas para encontrar os pares bíblicos!';
+    if (_paresEncontrados == 11) return 'Falta apenas um par! Você consegue!';
+    return 'Boa! Já encontramos $_paresEncontrados pares!';
+  }
+}
+
+class _MemoryCardWidget extends StatefulWidget {
+  final String illustration;
+  final bool revelada;
+  final bool encontrada;
+  final VoidCallback onTap;
+
+  const _MemoryCardWidget({
+    required this.illustration,
+    required this.revelada,
+    required this.encontrada,
+    required this.onTap,
+  });
+
+  @override
+  State<_MemoryCardWidget> createState() => _MemoryCardWidgetState();
+}
+
+class _MemoryCardWidgetState extends State<_MemoryCardWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.revelada || widget.encontrada) {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MemoryCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final virada = widget.revelada || widget.encontrada;
+    final oldVirada = oldWidget.revelada || oldWidget.encontrada;
+    if (virada != oldVirada) {
+      if (virada) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final angle = _animation.value * 3.14159265;
+        final isFront = angle >= 3.14159265 / 2;
+        
+        return Transform(
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.002)
+            ..rotateY(angle),
+          alignment: Alignment.center,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: isFront
+                ? Transform(
+                    transform: Matrix4.identity()..rotateY(3.14159265),
+                    alignment: Alignment.center,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: widget.encontrada ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                          width: 3,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          widget.illustration,
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      ),
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2563EB).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '🐑',
+                        style: TextStyle(fontSize: 26),
+                      ),
+                    ),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
