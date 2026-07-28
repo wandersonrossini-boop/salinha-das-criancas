@@ -3,6 +3,14 @@ import 'dart:async';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../teams/models/team.dart';
+import '../../../core/components/mascot/mascot_widget.dart';
+
+class JogoMemoriaIcon {
+  final IconData iconData;
+  final Color color;
+
+  const JogoMemoriaIcon(this.iconData, this.color);
+}
 
 class JogoMemoriaScreen extends StatefulWidget {
   const JogoMemoriaScreen({super.key});
@@ -24,23 +32,23 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
   Timer? _gameTimer;
   int _segundosGastos = 0;
 
-  // Bible Card System Illustration Emojis
-  final List<String> _ilustracoesBiblicas = [
-    '📖', // Bíblia
-    '⛵', // Arca de Noé
-    '🕊️', // Pomba
-    '👑', // Coroa
-    '🐟', // Peixe
-    '✝️', // Cruz
-    '🦁', // Leão
-    '🌟', // Estrela
-    '🐑', // Ovelha
-    '🥖', // Pão (Multiplicação)
-    '🎵', // Harpa/Louvor
-    '🔥', // Fogo/Espirito
+  // Bible Card System Illustration Icons
+  final List<JogoMemoriaIcon> _ilustracoesBiblicas = [
+    const JogoMemoriaIcon(Icons.menu_book_rounded, Color(0xFF1E3A8A)), // Bible
+    const JogoMemoriaIcon(Icons.sailing_rounded, Color(0xFFB45309)), // Noah's Ark
+    const JogoMemoriaIcon(Icons.favorite_rounded, Color(0xFFBE185D)), // Love
+    const JogoMemoriaIcon(Icons.emoji_events_rounded, Color(0xFFF59E0B)), // Crown
+    const JogoMemoriaIcon(Icons.pets_rounded, Color(0xFF047857)), // Lion
+    const JogoMemoriaIcon(Icons.wb_sunny_rounded, Color(0xFFEAB308)), // Star
+    const JogoMemoriaIcon(Icons.church_rounded, Color(0xFF6D28D9)), // Church
+    const JogoMemoriaIcon(Icons.local_fire_department_rounded, Color(0xFFDC2626)), // Holy Spirit
+    const JogoMemoriaIcon(Icons.water_drop_rounded, Color(0xFF0284C7)), // Water
+    const JogoMemoriaIcon(Icons.lightbulb_rounded, Color(0xFFD97706)), // Light
+    const JogoMemoriaIcon(Icons.music_note_rounded, Color(0xFF4F46E5)), // Music
+    const JogoMemoriaIcon(Icons.key_rounded, Color(0xFF475569)), // Key
   ];
 
-  late List<String> _cartas;
+  late List<JogoMemoriaIcon> _cartas;
   List<bool> _reveladas = [];
   List<bool> _encontradas = [];
   
@@ -77,7 +85,7 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
     int numPares = 12;
     int numCartas = numPares * 2;
     
-    List<String> ilustracoesSelecionadas = _ilustracoesBiblicas.take(numPares).toList();
+    List<JogoMemoriaIcon> ilustracoesSelecionadas = _ilustracoesBiblicas.take(numPares).toList();
     _cartas = [...ilustracoesSelecionadas, ...ilustracoesSelecionadas];
     _cartas.shuffle();
     _reveladas = List.filled(numCartas, false);
@@ -119,7 +127,7 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
       _primeiraCartaIndex = index;
     } else {
       _esperando = true;
-      if (_cartas[_primeiraCartaIndex!] == _cartas[index]) {
+      if (_cartas[_primeiraCartaIndex!].iconData == _cartas[index].iconData) {
         setState(() {
           _encontradas[_primeiraCartaIndex!] = true;
           _encontradas[index] = true;
@@ -139,7 +147,9 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
         Timer(const Duration(seconds: 1), () {
           if (!mounted) return;
           setState(() {
-            _reveladas[_primeiraCartaIndex!] = false;
+            if (_primeiraCartaIndex != null) {
+              _reveladas[_primeiraCartaIndex!] = false;
+            }
             _reveladas[index] = false;
             _esperando = false;
             _primeiraCartaIndex = null;
@@ -283,9 +293,10 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
 
   Widget _buildSetup() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Container(
+          width: 500,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -367,141 +378,146 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
   Widget _buildTabuleiro() {
     final activeColor = _isTeam1Turn ? AppColors.azulCeleste : AppColors.laranjaCriativo;
     
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (_isTeamVsTeam) ...[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(_isTeam1Turn ? '🔵 ' : '🟠 '),
-                          Text(
-                            _isTeam1Turn ? 'Equipe Azul' : 'Equipe Laranja',
-                            style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: activeColor),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _isTeam1Turn ? 'Pares: $_paresEquipe1 / 12' : 'Pares: $_paresEquipe2 / 12',
-                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ] else ...[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Desafio Solo',
-                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.verdePasto),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Pares: $_paresEncontrados de 12',
-                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ],
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 50,
-                      height: 50,
-                      child: CircularProgressIndicator(
-                        value: (_segundosGastos % 60) / 60,
-                        strokeWidth: 4,
-                        backgroundColor: Colors.grey.shade100,
-                        color: AppColors.azulCeleste,
-                      ),
-                    ),
-                    Text(
-                      '$_segundosGastos',
-                      style: const TextStyle(
-                        fontFamily: 'Fredoka',
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calcule o espaço disponível dinamicamente
+        final headerHeight = 72.0; // Altura aproximada do placar de cima
+        final tipsHeight = 48.0;   // Altura aproximada da dica da ovelha
+        final paddingVertical = 16.0;
+        final availableHeight = constraints.maxHeight - headerHeight - tipsHeight - paddingVertical;
+        
+        // Tabuleiro dinâmico proporcional à área restante da tela
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: Column(
             children: [
-              const Text('🐑', style: TextStyle(fontSize: 28)),
-              const SizedBox(width: 8),
-              Expanded(
+              // 1. Cabeçalho / Placar compacto
+              SizedBox(
+                height: headerHeight,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
                   ),
-                  child: Text(
-                    _getMascotSpeech(),
-                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (_isTeamVsTeam) ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Text(_isTeam1Turn ? '🔵 ' : '🟠 '),
+                                Text(
+                                  _isTeam1Turn ? 'Equipe Azul' : 'Equipe Laranja',
+                                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: activeColor),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isTeam1Turn ? 'Pares: $_paresEquipe1 / 12' : 'Pares: $_paresEquipe2 / 12',
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Desafio Solo',
+                              style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.verdePasto),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Pares: $_paresEncontrados de 12',
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade200, width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                value: (_segundosGastos % 60) / 60,
+                                strokeWidth: 2.5,
+                                backgroundColor: Colors.grey.shade200,
+                                color: AppColors.azulCeleste,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${_segundosGastos}s',
+                              style: const TextStyle(
+                                fontFamily: 'Fredoka',
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 3. Tabuleiro dimensionado dinamicamente com base na altura restante
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(), // Mantém fixo na tela
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 8.0,
+                      mainAxisSpacing: 8.0,
+                      childAspectRatio: 1.15, // Aumenta a proporção para deixar os cards mais baixos (menos cumpridos)
+                    ),
+                    itemCount: _cartas.length,
+                    itemBuilder: (context, index) {
+                      final revelada = _reveladas[index];
+                      final encontrada = _encontradas[index];
+                      
+                      return _MemoryCardWidget(
+                        illustration: _cartas[index],
+                        revelada: revelada,
+                        encontrada: encontrada,
+                        onTap: () => _onCartaTap(index),
+                      );
+                    },
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: GridView.builder(
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 8.0,
-                  mainAxisSpacing: 8.0,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: _cartas.length,
-                itemBuilder: (context, index) {
-                  final revelada = _reveladas[index];
-                  final encontrada = _encontradas[index];
-                  
-                  return _MemoryCardWidget(
-                    illustration: _cartas[index],
-                    revelada: revelada,
-                    encontrada: encontrada,
-                    onTap: () => _onCartaTap(index),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -513,7 +529,7 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
 }
 
 class _MemoryCardWidget extends StatefulWidget {
-  final String illustration;
+  final JogoMemoriaIcon illustration;
   final bool revelada;
   final bool encontrada;
   final VoidCallback onTap;
@@ -604,9 +620,10 @@ class _MemoryCardWidgetState extends State<_MemoryCardWidget> with SingleTickerP
                         ],
                       ),
                       child: Center(
-                        child: Text(
-                          widget.illustration,
-                          style: const TextStyle(fontSize: 32),
+                        child: Icon(
+                          widget.illustration.iconData,
+                          color: widget.illustration.color,
+                          size: 38,
                         ),
                       ),
                     ),
@@ -634,9 +651,10 @@ class _MemoryCardWidgetState extends State<_MemoryCardWidget> with SingleTickerP
                       ],
                     ),
                     child: const Center(
-                      child: Text(
-                        '🐑',
-                        style: TextStyle(fontSize: 26),
+                      child: MascotWidget(
+                        pose: MascotPose.idle,
+                        width: 54,
+                        height: 54,
                       ),
                     ),
                   ),

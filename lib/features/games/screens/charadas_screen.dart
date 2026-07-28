@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../teams/models/team.dart';
 import '../../students/models/student.dart';
-import '../../../core/components/mascot_assets.dart';
+import '../../../core/components/mascot/mascot_widget.dart';
 
 enum FaseJogo { preparando, emAndamento, chute, resultado, finalizado }
 
@@ -253,17 +253,19 @@ class _CharadasScreenState extends State<CharadasScreen> {
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: const Text('Equipes'),
+                          label: const Center(child: Text('Equipes')),
                           selected: _assignToTeam,
                           onSelected: (val) => setModalState(() => _assignToTeam = true),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: const Text('Um Aluno'),
+                          label: const Center(child: Text('Um Aluno')),
                           selected: !_assignToTeam,
                           onSelected: (val) => setModalState(() => _assignToTeam = false),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         ),
                       ),
                     ],
@@ -274,7 +276,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
                       value: _selectedTeam,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       ),
                       items: _teams.map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
                       onChanged: (val) => setState(() => _selectedTeam = val),
@@ -284,7 +286,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
                       value: _selectedStudent,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       ),
                       items: _students.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
                       onChanged: (val) => setState(() => _selectedStudent = val),
@@ -301,10 +303,10 @@ class _CharadasScreenState extends State<CharadasScreen> {
                             _aplicarChuteAcerto();
                           },
                           icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text('🟢 Sim', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
+                          label: const Text('Sim', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                         ),
@@ -317,10 +319,10 @@ class _CharadasScreenState extends State<CharadasScreen> {
                             _aplicarChuteErro();
                           },
                           icon: const Icon(Icons.close, color: Colors.white),
-                          label: const Text('🔴 Não', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
+                          label: const Text('Não', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                         ),
@@ -365,18 +367,18 @@ class _CharadasScreenState extends State<CharadasScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🎉', style: TextStyle(fontSize: 48)),
+            const MascotWidget(action: MascotAction.love, width: 80, height: 80),
             const SizedBox(height: 10),
             const Text('Parabéns!', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 24)),
             const SizedBox(height: 6),
             Text('$vencedor acertou!', textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, color: AppColors.verdePasto)),
-            const Text('+10 pontos!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('+10 pontos!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.laranjaCriativo)),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
             Text(
               'Era: ${_personagemAtual['nome']} ${_personagemAtual['emoji']}',
-              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 6),
             Text(
@@ -413,29 +415,49 @@ class _CharadasScreenState extends State<CharadasScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('❌ Resposta Incorreta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.red)),
-        content: const Text('Deseja continuar jogando para tentar novos chutes ou prefere revelar a resposta agora?'),
+        title: const Text('❌ Resposta Incorreta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.red), textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const MascotWidget(expression: MascotExpression.surprised, width: 80, height: 80),
+            const SizedBox(height: 14),
+            const Text('Deseja continuar jogando para tentar novos chutes ou prefere revelar a resposta agora?', textAlign: TextAlign.center),
+          ],
+        ),
         actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actionsPadding: const EdgeInsets.only(bottom: 20, left: 16, right: 16),
         actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _iniciarTimer(_timeLeft); // Resumes timer
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.azulCeleste,
-              foregroundColor: Colors.white,
+          SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _iniciarTimer(_timeLeft); // Resumes timer
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.azulCeleste,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Continuar Cronômetro', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12)),
             ),
-            child: const Text('Continuar Cronômetro', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _fase = FaseJogo.finalizado;
-              });
-            },
-            child: const Text('Revelar Resposta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.red)),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  _fase = FaseJogo.finalizado;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Revelar Resposta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
           ),
         ],
       )
@@ -444,7 +466,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
 
   Widget _buildFaseTracker() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -462,24 +484,31 @@ class _CharadasScreenState extends State<CharadasScreen> {
   }
 
   Widget _buildTrackerItem(String emoji, String text, bool active) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Opacity(
-          opacity: active ? 1.0 : 0.25,
-          child: Text(emoji, style: const TextStyle(fontSize: 18)),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'Fredoka',
-            fontSize: 9,
-            fontWeight: active ? FontWeight.bold : FontWeight.normal,
-            color: active ? AppColors.textPrimary : AppColors.textSecondary.withOpacity(0.5),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? AppColors.azulCeleste.withOpacity(0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: active ? 1.0 : 0.35,
+            child: Text(emoji, style: const TextStyle(fontSize: 16)),
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Fredoka',
+              fontSize: 9.5,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color: active ? AppColors.azulCeleste : AppColors.textSecondary.withOpacity(0.55),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -516,7 +545,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
 
                 // Game Title Banner Card
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
@@ -526,7 +555,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
                   ),
                   child: Row(
                     children: [
-                      const MascotWidget(asset: MascotAssets.transparentSheep, width: 50, height: 50),
+                      const MascotWidget(pose: MascotPose.front, width: 42, height: 42),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -613,11 +642,11 @@ class _CharadasScreenState extends State<CharadasScreen> {
                 // Mascot dialog hint
                 Row(
                   children: [
-                    const Text('🐑', style: TextStyle(fontSize: 28)),
+                    const MascotWidget(expression: MascotExpression.thinking, width: 34, height: 34),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -646,8 +675,8 @@ class _CharadasScreenState extends State<CharadasScreen> {
                         color: revelada ? Colors.white : (isLocked ? Colors.grey.shade100 : Colors.white),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: revelada ? AppColors.azulCeleste.withOpacity(0.5) : (isLocked ? Colors.grey.shade200 : AppColors.azulCeleste),
-                          width: 2,
+                          color: revelada ? AppColors.azulCeleste.withOpacity(0.6) : (isLocked ? Colors.grey.shade300 : AppColors.azulCeleste),
+                          width: 2.5,
                         ),
                       ),
                       child: InkWell(
@@ -670,7 +699,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
                                 ),
                                 child: Icon(
                                   revelada ? Icons.lightbulb_outline_rounded : (isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded),
-                                  color: revelada ? AppColors.azulCeleste : (isLocked ? Colors.grey.shade400 : AppColors.azulCeleste),
+                                  color: revelada ? AppColors.azulCeleste : (isLocked ? Colors.grey.shade500 : AppColors.azulCeleste),
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -703,10 +732,10 @@ class _CharadasScreenState extends State<CharadasScreen> {
                       ),
                     );
                   }),
-                ] else ...[
+                ] else if (_fase == FaseJogo.preparando || _fase == FaseJogo.emAndamento || _fase == FaseJogo.chute) ...[
                   // --- MIMICA MODE ---
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -935,21 +964,21 @@ class _CharadasScreenState extends State<CharadasScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Você é:', style: TextStyle(fontFamily: 'Nunito', fontSize: 16, color: AppColors.textSecondary)),
-            Text(_personagemAtual['nome'], style: const TextStyle(fontFamily: 'Fredoka', fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.roxoAcolhedor)),
+            const Text('Você é:', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary)),
+            Text(_personagemAtual['nome'], style: const TextStyle(fontFamily: 'Fredoka', fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.roxoAcolhedor)),
             const SizedBox(height: 4),
-            Text(_personagemAtual['emoji'], style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 20),
-            const Text('Ideias para fazer mímica:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            Text(_personagemAtual['emoji'], style: const TextStyle(fontSize: 42)),
+            const SizedBox(height: 14),
+            const Text('Ideias para fazer mímica:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 10),
             ...(_personagemAtual['dicas'] as List).map((dica) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
+              padding: const EdgeInsets.only(bottom: 6.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.star, size: 16, color: AppColors.amareloSol),
+                  const Icon(Icons.star, size: 14, color: AppColors.amareloSol),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(dica, style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text(dica, style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold))),
                 ],
               ),
             )).toList(),

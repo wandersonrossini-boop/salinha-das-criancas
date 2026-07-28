@@ -34,13 +34,15 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.1
   build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/illustrations/
-    - assets/illustrations/mascot/
     - assets/images/
-    - assets/mascot/expressions/
-    - assets/mascot/poses/
-    - assets/mascot/actions/
+    - assets/images/characters/
+    - assets/images/icons/
+    - assets/images/mascot/
+    - assets/images/mascot/expressions/
+    - assets/images/mascot/poses/
+    - assets/images/mascot/actions/

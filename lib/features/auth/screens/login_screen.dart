@@ -9,6 +9,7 @@ import '../../../core/design_system/radius.dart';
 import '../../../core/design_system/elevation.dart';
 import '../../../core/design_system/spacing.dart';
 import '../../../core/design_system/illustrations.dart';
+import '../../../core/components/mascot/mascot_widget.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -279,11 +280,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: DsSpacing.s16),
 
-                      // Mascote (40% da tela)
+                      // Professor / Personagem Principal de Boas-vindas (40% da tela)
                       SizedBox(
                         height: size.height * 0.40,
                         child: Image.asset(
-                          'assets/illustrations/mascot/mascot_welcome.png',
+                          DsIllustrations.avatarTeacherMale,
                           fit: BoxFit.contain,
                         ),
                       ),
@@ -346,8 +347,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               DropdownButtonFormField<Map<String, dynamic>>(
                                 value: _selectedTeacher,
                                 decoration: InputDecoration(
-                                  labelText: 'Selecione seu Nome',
-                                  floatingLabelBehavior: FloatingLabelBehavior.always,
                                   prefixIcon: const Icon(Icons.person_pin_rounded, color: Color(0xFF4EA4FF)),
                                   border: OutlineInputBorder(
                                     borderRadius: DsRadius.medium,

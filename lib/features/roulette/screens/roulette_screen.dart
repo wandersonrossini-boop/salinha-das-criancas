@@ -137,6 +137,11 @@ class _RouletteScreenState extends State<RouletteScreen> {
         title: const Text('Roleta de Sorteios', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.background,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context) ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ) : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline, color: AppColors.azulCeleste),

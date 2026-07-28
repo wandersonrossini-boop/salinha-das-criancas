@@ -26,10 +26,10 @@ class GamesMenuScreen extends StatelessWidget {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
+        leading: Navigator.canPop(context) ? IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
-        ),
+        ) : null,
       ),
       body: Stack(
         children: [
@@ -104,7 +104,7 @@ class GamesMenuScreen extends StatelessWidget {
                   context,
                   'Quiz Bíblico',
                   'Perguntas bíblicas de múltipla escolha.',
-                  '📖✨',
+                  Icons.help_outline_rounded,
                   [const Color(0xFF1E3A8A), const Color(0xFF3B82F6), const Color(0xFF60A5FA)],
                   '🏆 Competitivo',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen())),
@@ -114,7 +114,7 @@ class GamesMenuScreen extends StatelessWidget {
                   context,
                   'Sorteio (Roleta)',
                   'Roleta interativa para sorteios e dinâmica.',
-                  '🎡🌀',
+                  Icons.cached_rounded,
                   [const Color(0xFFB45309), const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
                   '✨ Sorte',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RouletteScreen())),
@@ -124,7 +124,7 @@ class GamesMenuScreen extends StatelessWidget {
                   context,
                   'Quem Sou Eu?',
                   'Descubra o personagem bíblico por dicas.',
-                  '🕵️💬',
+                  Icons.psychology_rounded,
                   [const Color(0xFF5B21B6), const Color(0xFF8B5CF6), const Color(0xFFA78BFA)],
                   '🧠 Desafio',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CharadasScreen())),
@@ -132,9 +132,9 @@ class GamesMenuScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 _buildPremiumCard(
                   context,
-                  'Cronômetro / Batata Quente',
-                  'Contagem regressiva e batata quente.',
-                  '🔥⏱️',
+                  'Batata Quente',
+                  'Passe o objeto antes que o tempo acabe.',
+                  Icons.local_fire_department_rounded,
                   [const Color(0xFF991B1B), const Color(0xFFEF4444), const Color(0xFFF87171)],
                   '⏱ Tempo',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CronometroScreen())),
@@ -144,7 +144,7 @@ class GamesMenuScreen extends StatelessWidget {
                   context,
                   'Jogo da Memória',
                   'Encontre os pares dos símbolos bíblicos.',
-                  '🧩🐑',
+                  Icons.grid_view_rounded,
                   [const Color(0xFF065F46), const Color(0xFF10B981), const Color(0xFF34D399)],
                   '💡 Memória',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoMemoriaScreen())),
@@ -154,7 +154,7 @@ class GamesMenuScreen extends StatelessWidget {
                   context,
                   'Jogo dos 7 Erros',
                   'Disputa interativa de encontrar os 7 erros.',
-                  '🔍⛵',
+                  Icons.difference_rounded,
                   [const Color(0xFF155E75), const Color(0xFF06B6D4), const Color(0xFF22D3EE)],
                   '👁 Atenção',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoSeteErrosScreen())),
@@ -172,7 +172,7 @@ class GamesMenuScreen extends StatelessWidget {
     BuildContext context,
     String title,
     String subtitle,
-    String emojiRepresentation,
+    IconData iconData,
     List<Color> colors,
     String badgeText,
     VoidCallback onTap,
@@ -189,9 +189,9 @@ class GamesMenuScreen extends StatelessWidget {
               height: 48,
               width: 48,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
+                color: Colors.white.withOpacity(0.24),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.5),
+                border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.06),
@@ -201,9 +201,10 @@ class GamesMenuScreen extends StatelessWidget {
                 ]
               ),
               alignment: Alignment.center,
-              child: Text(
-                emojiRepresentation,
-                style: const TextStyle(fontSize: 24),
+              child: Icon(
+                iconData,
+                color: Colors.white,
+                size: 24,
               ),
             ),
             const SizedBox(width: 14),
@@ -222,7 +223,7 @@ class GamesMenuScreen extends StatelessWidget {
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       // Chips premium 20% menores
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),

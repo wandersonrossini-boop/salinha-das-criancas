@@ -5,8 +5,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'features/auth/screens/login_screen.dart';
 
+import 'package:flutter_web_plugins/url_strategy.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

@@ -171,46 +171,133 @@ Boa semana a todas as famílias! 🙏
   Future<void> _generateSpecificPDF(int optionIndex) async {
     final pdf = pw.Document();
     
+    final activityNames = [
+      'Desenho para Colorir 🎨',
+      'Labirinto Bíblico 🧩',
+      'Jogo dos 7 Erros 🔍',
+      'Caça-Palavras ✏️'
+    ];
+
+    final activityName = activityNames[optionIndex];
+    final planTitle = _currentPlan?.title ?? "Aula de Hoje";
+    final planVerse = _currentPlan?.keyVerse ?? "Seja forte e corajoso! Josué 1:9";
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         build: (pw.Context context) {
           return pw.Container(
-            padding: const pw.EdgeInsets.all(20),
+            padding: const pw.EdgeInsets.all(16),
             decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.black, width: 4),
-              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(20)),
+              border: pw.Border.all(color: PdfColors.grey700, width: 2),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16)),
             ),
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                pw.Text('SALINHA DAS CRIANCAS', style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 10),
-                pw.Text('Tema: ${_currentPlan?.title ?? "Aula do Dia"}', style: pw.TextStyle(fontSize: 18)),
-                pw.SizedBox(height: 20),
-                
-                // Conteúdo Dinâmico
-                pw.Expanded(
-                  child: pw.Container(
-                    width: double.infinity,
-                    padding: const pw.EdgeInsets.all(16),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.black, width: 2, style: pw.BorderStyle.dashed),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(15)),
+                // CABEÇALHO PEDAGÓGICO DS
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('SALINHA DAS CRIANÇAS 🇨🇭', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+                        pw.SizedBox(height: 2),
+                        pw.Text('Lição: $planTitle', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+                        pw.Text(activityName, style: pw.TextStyle(fontSize: 11, fontStyle: pw.FontStyle.italic, color: PdfColors.grey600)),
+                      ],
                     ),
-                    child: _buildPDFContent(optionIndex),
-                  ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.blue800, width: 1.5),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                      ),
+                      child: pw.Text('Material Didático', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+                pw.Divider(thickness: 1, color: PdfColors.grey400),
+                pw.SizedBox(height: 10),
+
+                // CONTEÚDO PRINCIPAL (EXCLUSIVO DA ATIVIDADE)
+                pw.Expanded(
+                  child: _buildPDFContent(optionIndex),
                 ),
                 
-                pw.SizedBox(height: 20),
+                pw.SizedBox(height: 10),
+                pw.Divider(thickness: 1, color: PdfColors.grey400),
+                pw.SizedBox(height: 8),
+
+                // BOX DO VERSÍCULO DO DIA INTEGRADO
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Versículo do Dia 📖', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+                      pw.SizedBox(height: 3),
+                      pw.Text('"$planVerse"', style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic, color: PdfColors.grey900)),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // BLOCO DE IDENTIFICAÇÃO DO ALUNO
                 pw.Row(
                   children: [
-                    pw.Text('Nome do Aluno: ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
                     pw.Expanded(
-                      child: pw.Container(
-                        decoration: const pw.BoxDecoration(
-                          border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 1)),
-                        ),
+                      flex: 3,
+                      child: pw.Row(
+                        children: [
+                          pw.Text('Nome: ', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                          pw.Expanded(
+                            child: pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 1)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Expanded(
+                      flex: 2,
+                      child: pw.Row(
+                        children: [
+                          pw.Text('Turma: ', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                          pw.Expanded(
+                            child: pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 1)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Expanded(
+                      flex: 1,
+                      child: pw.Row(
+                        children: [
+                          pw.Text('Data: ', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                          pw.Expanded(
+                            child: pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 1)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -230,152 +317,183 @@ Boa semana a todas as famílias! 🙏
 
   pw.Widget _buildPDFContent(int optionIndex) {
     switch (optionIndex) {
-      case 0: // Desenho para colorir
+      case 0:
         return pw.Column(
-          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text('Desenhe aqui a historia de hoje!', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 40),
-            pw.Container(
-              height: 350,
-              width: 450,
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400, width: 2, style: pw.BorderStyle.dashed),
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(20)),
+            pw.Text(
+              'Instrução: Use toda a sua criatividade para colorir e desenhar a história bíblica que aprendemos hoje!',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Expanded(
+              child: pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey500, width: 1, style: pw.BorderStyle.dashed),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                ),
+                child: pw.Stack(
+                  alignment: pw.Alignment.center,
+                  children: [
+                    pw.Container(width: 60, height: 180, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 1.5, style: pw.BorderStyle.dashed))),
+                    pw.Positioned(top: 45, child: pw.Container(width: 140, height: 50, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 1.5, style: pw.BorderStyle.dashed)))),
+                    pw.Container(width: 58, height: 178, color: PdfColors.white),
+                    pw.Positioned(top: 46, child: pw.Container(width: 138, height: 48, color: PdfColors.white)),
+                  ],
+                ),
               ),
-              child: pw.Stack(
-                alignment: pw.Alignment.center,
-                children: [
-                  // Uma cruz vazada bem suave no fundo para colorir
-                  pw.Container(width: 80, height: 250, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 2))),
-                  pw.Positioned(top: 70, child: pw.Container(width: 180, height: 60, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 2)))),
-                  pw.Container(width: 76, height: 246, color: PdfColors.white),
-                  pw.Positioned(top: 72, child: pw.Container(width: 176, height: 56, color: PdfColors.white)),
-                ]
-              )
             ),
-            pw.SizedBox(height: 40),
-            pw.Text('"${_currentPlan?.keyVerse ?? "Deus e amor."}"', style: pw.TextStyle(fontSize: 20, fontStyle: pw.FontStyle.italic)),
-          ]
+          ],
         );
-      case 1: // Labirinto
+      case 1:
         return pw.Column(
-          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text('Labirinto Biblico', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 20),
-            pw.Text('Ajude a chegar ao centro!', style: const pw.TextStyle(fontSize: 16)),
-            pw.SizedBox(height: 20),
-            pw.Text('ENTRADA', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-            pw.Container(
-              height: 350,
-              width: 350,
-              child: pw.Stack(
-                alignment: pw.Alignment.center,
-                children: [
-                  pw.Container(width: 350, height: 350, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  pw.Container(width: 300, height: 300, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  pw.Container(width: 250, height: 250, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  pw.Container(width: 200, height: 200, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  pw.Container(width: 150, height: 150, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  pw.Container(width: 100, height: 100, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
-                  
-                  // Aberturas brancas (quebram as paredes)
-                  pw.Positioned(top: -2, right: 80, child: pw.Container(width: 40, height: 8, color: PdfColors.white)), // Quebra 350
-                  pw.Positioned(top: 23, left: 100, child: pw.Container(width: 40, height: 8, color: PdfColors.white)), // Quebra 300
-                  pw.Positioned(bottom: 48, right: 100, child: pw.Container(width: 40, height: 8, color: PdfColors.white)), // Quebra 250
-                  pw.Positioned(left: 73, top: 150, child: pw.Container(width: 8, height: 40, color: PdfColors.white)), // Quebra 200
-                  pw.Positioned(top: 98, right: 150, child: pw.Container(width: 40, height: 8, color: PdfColors.white)), // Quebra 150
-                  pw.Positioned(bottom: 123, left: 150, child: pw.Container(width: 40, height: 8, color: PdfColors.white)), // Quebra 100
-                  
-                  pw.Text('CHEGADA', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                ]
-              )
-            )
-          ]
-        );
-      case 2: // 7 Erros
-        pw.Widget buildScene({required bool isDiff}) {
-          return pw.Container(
-            decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 2)),
-            child: pw.Stack(
-              children: [
-                // 1. Sol (Falta na imagem 2)
-                if (!isDiff) pw.Positioned(top: 20, right: 20, child: pw.Container(width: 40, height: 40, decoration: const pw.BoxDecoration(color: PdfColors.grey300, shape: pw.BoxShape.circle))),
-                
-                // 2. Nuvem 1 e 2 (Imagem 2 tem uma nuvem a mais)
-                pw.Positioned(top: 40, left: 30, child: pw.Container(width: 60, height: 20, decoration: const pw.BoxDecoration(color: PdfColors.grey300, borderRadius: pw.BorderRadius.all(pw.Radius.circular(10))))),
-                if (isDiff) pw.Positioned(top: 30, left: 100, child: pw.Container(width: 40, height: 15, decoration: const pw.BoxDecoration(color: PdfColors.grey300, borderRadius: pw.BorderRadius.all(pw.Radius.circular(10))))),
-                
-                // Chão
-                pw.Positioned(bottom: 0, left: 0, right: 0, child: pw.Container(height: 50, color: PdfColors.grey200)),
-                
-                // Ovelha corpo
-                pw.Positioned(bottom: 40, left: 100, child: pw.Container(width: 60, height: 40, decoration: pw.BoxDecoration(color: PdfColors.white, border: pw.Border.all(color: PdfColors.black, width: 2), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(20))))),
-                
-                // 3. Ovelha cabeca (Deslocada na imagem 2)
-                pw.Positioned(bottom: 50, left: isDiff ? 150 : 140, child: pw.Container(width: 30, height: 30, decoration: const pw.BoxDecoration(color: PdfColors.black, shape: pw.BoxShape.circle))),
-                
-                // Arvore tronco
-                pw.Positioned(bottom: 50, right: 40, child: pw.Container(width: 15, height: 60, color: PdfColors.black)),
-                
-                // 4. Arvore folhas (Deslocada na imagem 2)
-                pw.Positioned(bottom: 90, right: isDiff ? 15 : 25, child: pw.Container(width: 50, height: 50, decoration: const pw.BoxDecoration(color: PdfColors.grey400, shape: pw.BoxShape.circle))),
-                
-                // 5. Pássaro 1 (Falta na imagem 2)
-                if (!isDiff) pw.Positioned(top: 80, right: 100, child: pw.Text('v', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold))),
-                
-                // Flor tronco
-                pw.Positioned(bottom: 10, left: 30, child: pw.Container(width: 10, height: 30, color: PdfColors.black)),
-                // 6. Flor cabeca (Falta na imagem 2)
-                if (!isDiff) pw.Positioned(bottom: 40, left: 25, child: pw.Container(width: 20, height: 20, decoration: const pw.BoxDecoration(color: PdfColors.grey400, shape: pw.BoxShape.circle))),
-                
-                // 7. Grama extra (Aparece apenas na imagem 2)
-                if (isDiff) pw.Positioned(bottom: 15, right: 100, child: pw.Container(width: 30, height: 10, color: PdfColors.grey500)),
-              ],
+            pw.Text(
+              'Instrução: Encontre o caminho correto para levar o personagem ao centro do labirinto!',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
             ),
-          );
-        }
-
+            pw.SizedBox(height: 16),
+            pw.Expanded(
+              child: pw.Center(
+                child: pw.SizedBox(
+                  width: 320,
+                  height: 320,
+                  child: pw.Stack(
+                    alignment: pw.Alignment.center,
+                    children: [
+                      pw.Container(width: 320, height: 320, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      pw.Container(width: 270, height: 270, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      pw.Container(width: 220, height: 220, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      pw.Container(width: 170, height: 170, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      pw.Container(width: 120, height: 120, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      pw.Container(width: 70, height: 70, decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 3))),
+                      
+                      pw.Positioned(top: -2, right: 60, child: pw.Container(width: 40, height: 8, color: PdfColors.white)),
+                      pw.Positioned(top: 23, left: 80, child: pw.Container(width: 40, height: 8, color: PdfColors.white)),
+                      pw.Positioned(bottom: 48, right: 80, child: pw.Container(width: 40, height: 8, color: PdfColors.white)),
+                      pw.Positioned(left: 73, top: 120, child: pw.Container(width: 8, height: 40, color: PdfColors.white)),
+                      pw.Positioned(top: 98, right: 120, child: pw.Container(width: 40, height: 8, color: PdfColors.white)),
+                      pw.Positioned(bottom: 123, left: 120, child: pw.Container(width: 40, height: 8, color: PdfColors.white)),
+                      
+                      pw.Positioned(top: 10, right: 70, child: pw.Text('🏠 INÍCIO', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+                      pw.Text('CHEGADA 🏁', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      case 2:
         return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text('Jogo dos 7 Erros', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 20),
+            pw.Text(
+              'Instrução: Compare atentamente as duas figuras abaixo e marque os 7 erros na imagem da direita!',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+            ),
+            pw.SizedBox(height: 16),
             pw.Expanded(
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  pw.Expanded(child: buildScene(isDiff: false)),
-                  pw.SizedBox(width: 20),
-                  pw.Expanded(child: buildScene(isDiff: true)),
-                ]
-              )
-            )
-          ]
-        );
-      case 3: // Caca Palavras
-        return pw.Column(
-          children: [
-            pw.Text('Caca-Palavras', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 20),
-            pw.Expanded(
-              child: pw.GridView(
-                crossAxisCount: 10,
-                childAspectRatio: 1,
-                children: List.generate(100, (index) {
-                  // Grid aleatório fictício
-                  final letras = 'DEUSAMORPAZFEESPERANCAJESUSCRISTOBIBLIA';
-                  final char = letras[index % letras.length];
-                  return pw.Container(
-                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 1)),
-                    child: pw.Center(child: pw.Text(char, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold))),
-                  );
-                })
-              )
+                  pw.Expanded(
+                    child: pw.Container(
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey700, width: 2),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                      ),
+                      child: pw.Stack(
+                        children: [
+                          pw.Positioned(top: 20, right: 20, child: pw.Container(width: 30, height: 30, decoration: const pw.BoxDecoration(color: PdfColors.grey300, shape: pw.BoxShape.circle))),
+                          pw.Positioned(top: 40, left: 30, child: pw.Container(width: 50, height: 18, decoration: const pw.BoxDecoration(color: PdfColors.grey300, borderRadius: pw.BorderRadius.all(pw.Radius.circular(8))))),
+                          pw.Positioned(bottom: 0, left: 0, right: 0, child: pw.Container(height: 40, color: PdfColors.grey200)),
+                          pw.Positioned(bottom: 30, left: 90, child: pw.Container(width: 50, height: 32, decoration: pw.BoxDecoration(color: PdfColors.white, border: pw.Border.all(color: PdfColors.black, width: 1.5), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16))))),
+                          pw.Positioned(bottom: 40, left: 125, child: pw.Container(width: 24, height: 24, decoration: const pw.BoxDecoration(color: PdfColors.black, shape: pw.BoxShape.circle))),
+                          pw.Positioned(bottom: 40, right: 30, child: pw.Container(width: 12, height: 50, color: PdfColors.black)),
+                          pw.Positioned(bottom: 75, right: 20, child: pw.Container(width: 40, height: 40, decoration: const pw.BoxDecoration(color: PdfColors.grey400, shape: pw.BoxShape.circle))),
+                          pw.Positioned(top: 70, right: 90, child: pw.Text('v', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold))),
+                          pw.Positioned(bottom: 8, left: 25, child: pw.Container(width: 8, height: 24, color: PdfColors.black)),
+                          pw.Positioned(bottom: 30, left: 20, child: pw.Container(width: 16, height: 16, decoration: const pw.BoxDecoration(color: PdfColors.grey400, shape: pw.BoxShape.circle))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(width: 14),
+                  pw.Expanded(
+                    child: pw.Container(
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey700, width: 2),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                      ),
+                      child: pw.Stack(
+                        children: [
+                          pw.Positioned(top: 40, left: 30, child: pw.Container(width: 50, height: 18, decoration: const pw.BoxDecoration(color: PdfColors.grey300, borderRadius: pw.BorderRadius.all(pw.Radius.circular(8))))),
+                          pw.Positioned(top: 30, left: 100, child: pw.Container(width: 30, height: 12, decoration: const pw.BoxDecoration(color: PdfColors.grey300, borderRadius: pw.BorderRadius.all(pw.Radius.circular(8))))),
+                          pw.Positioned(bottom: 0, left: 0, right: 0, child: pw.Container(height: 40, color: PdfColors.grey200)),
+                          pw.Positioned(bottom: 30, left: 90, child: pw.Container(width: 50, height: 32, decoration: pw.BoxDecoration(color: PdfColors.white, border: pw.Border.all(color: PdfColors.black, width: 1.5), borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16))))),
+                          pw.Positioned(bottom: 40, left: 135, child: pw.Container(width: 24, height: 24, decoration: const pw.BoxDecoration(color: PdfColors.black, shape: pw.BoxShape.circle))),
+                          pw.Positioned(bottom: 40, right: 30, child: pw.Container(width: 12, height: 50, color: PdfColors.black)),
+                          pw.Positioned(bottom: 75, right: 10, child: pw.Container(width: 40, height: 40, decoration: const pw.BoxDecoration(color: PdfColors.grey400, shape: pw.BoxShape.circle))),
+                          pw.Positioned(bottom: 8, left: 25, child: pw.Container(width: 8, height: 24, color: PdfColors.black)),
+                          pw.Positioned(bottom: 12, right: 90, child: pw.Container(width: 24, height: 8, color: PdfColors.grey500)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            pw.SizedBox(height: 20),
-            pw.Text('Procure: DEUS - AMOR - PAZ - FE - JESUS - BIBLIA', style: pw.TextStyle(fontSize: 14)),
-          ]
+          ],
+        );
+      case 3:
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Text(
+              'Instrução: Procure e circule as palavras da lista dentro da grade de letras!',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+            ),
+            pw.SizedBox(height: 14),
+            pw.Expanded(
+              child: pw.Center(
+                child: pw.Container(
+                  width: 280,
+                  height: 280,
+                  child: pw.GridView(
+                    crossAxisCount: 10,
+                    childAspectRatio: 1,
+                    children: List.generate(100, (index) {
+                      final letras = 'DEUSAMORPAZFEESPERANCAJESUSCRISTOBIBLIA';
+                      final char = letras[index % letras.length];
+                      return pw.Container(
+                        decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 0.5)),
+                        child: pw.Center(child: pw.Text(char, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 14),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400),
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('Palavras para encontrar: 🔍', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
+                  pw.SizedBox(height: 4),
+                  pw.Text('DEUS  •  AMOR  •  PAZ  •  FE  •  JESUS  •  BIBLIA', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.grey900)),
+                ],
+              ),
+            ),
+          ],
         );
       default:
         return pw.SizedBox();
@@ -390,6 +508,11 @@ Boa semana a todas as famílias! 🙏
         title: const Text('Modo Ministrar', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.background,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context) ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ) : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: AppColors.alerta),
