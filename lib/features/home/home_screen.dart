@@ -278,8 +278,8 @@ class DashboardContent extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        elevation: 10,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 450),
           child: Container(
@@ -713,7 +713,8 @@ class DashboardContent extends StatelessWidget {
     return FutureBuilder<Map<String, int>>(
       future: _fetchClassTodayData(),
       builder: (context, snapshot) {
-        final data = snapshot.data ?? {'teachers': 0, 'students': 0, 'present': 0};
+        final data = snapshot.data ?? {'teachers': 0, 'students': 0, 'present': 0, 'initiated': 0};
+        final bool isInitiated = data['initiated'] == 1;
         
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())),
@@ -748,11 +749,17 @@ class DashboardContent extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatRow('Professores', '${data['teachers']}'),
-                    const SizedBox(height: 4),
-                    _buildStatRow('Alunos', '${data['students']}'),
-                    const SizedBox(height: 4),
-                    _buildStatRow('Presentes', '${data['present']} de ${data['students']}'),
+                    if (!isInitiated) ...[
+                      _buildStatRow('Alunos', '0 presentes'),
+                      const SizedBox(height: 4),
+                      _buildStatRow('Status', 'Chamada não iniciada'),
+                    ] else ...[
+                      _buildStatRow('Alunos', '${data['students']}'),
+                      const SizedBox(height: 4),
+                      _buildStatRow('Presentes', '${data['present']}'),
+                      const SizedBox(height: 4),
+                      _buildStatRow('Status', 'Chamada realizada'),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -767,10 +774,10 @@ class DashboardContent extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: DsElevation.glow(const Color(0xFF10B981)),
                   ),
-                  child: const Text(
-                    'Abrir Chamada',
+                  child: Text(
+                    isInitiated ? 'Ver Chamada' : 'Abrir Chamada',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Fredoka',
                       color: Colors.white,
                       fontSize: 12,
@@ -817,20 +824,21 @@ class DashboardContent extends StatelessWidget {
     try {
       final query = await FirebaseFirestore.instance.collection('usuarios').count().get();
       teachersCount = query.count ?? 0;
-    } catch (_) {
-      // Ignora erro se nÃ£o conseguir buscar (ex: offline)
-    }
+    } catch (_) {}
 
     int studentsCount = 0;
     int presentCount = 0;
+    bool hasInitiated = false;
     try {
       final students = await DatabaseHelper.instance.fetchAllStudents();
       studentsCount = students.length;
 
       final prefs = await SharedPreferences.getInstance();
+      final todayDate = DateTime.now().toIso8601String().split('T')[0];
+      final attendanceDate = prefs.getString('attendance_date') ?? '';
+      hasInitiated = attendanceDate == todayDate;
+
       final presentIds = prefs.getStringList('present_student_ids') ?? [];
-      
-      // Conta apenas os presentes que ainda existem na lista de alunos (evita contar alunos excluÃ­dos)
       final allIds = students.map((e) => e.id.toString()).toSet();
       presentCount = presentIds.where((id) => allIds.contains(id)).length;
     } catch (_) {}
@@ -839,6 +847,7 @@ class DashboardContent extends StatelessWidget {
       'teachers': teachersCount,
       'students': studentsCount,
       'present': presentCount,
+      'initiated': hasInitiated ? 1 : 0,
     };
   }
 

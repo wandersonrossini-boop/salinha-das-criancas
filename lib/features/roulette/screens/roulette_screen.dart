@@ -5,6 +5,8 @@ import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../../core/components/image_helper.dart';
+import '../../students/models/student.dart';
+import '../../students/screens/chamada_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RouletteScreen extends StatefulWidget {
@@ -19,8 +21,11 @@ class _RouletteScreenState extends State<RouletteScreen> {
   int _lastSelectedIndex = -1;
   
   List<dynamic> _items = []; // Can be Student or String (for Teams)
+  List<dynamic> _removedFromRound = [];
+  List<String> _history = [];
   bool _isLoading = true;
-  String _currentMode = 'Alunos'; // 'Alunos' ou 'Equipes'
+  String _currentMode = 'Alunos';
+  bool _useAllStudents = false;
 
   @override
   void initState() {
@@ -38,10 +43,12 @@ class _RouletteScreenState extends State<RouletteScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('📖 Regras - Roleta'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Roleta de Sorteios', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
         content: const Text(
-          '1. A roleta filtra automaticamente os alunos marcados como PRESENTES na chamada.\n'
-          '2. Gire a roleta para sortear quem responderá à pergunta ou fará a leitura.'
+          '1. Por padrão, a roleta filtra apenas os alunos presentes hoje.\n'
+          '2. Você pode ativar "Todos os alunos" nas opções.\n'
+          '3. Gire a roleta para sortear um aluno ou equipe para participar!'
         ),
         actions: [
           TextButton(
@@ -57,14 +64,52 @@ class _RouletteScreenState extends State<RouletteScreen> {
     setState(() => _isLoading = true);
     
     if (_currentMode == 'Alunos') {
-      final prefs = await SharedPreferences.getInstance();
-      final presentIds = prefs.getStringList('present_student_ids') ?? [];
       final allStudents = await DatabaseHelper.instance.fetchAllStudents();
+      List<Student> filtered = [];
       
-      final presentStudents = allStudents.where((s) => presentIds.contains(s.id.toString())).toList();
+      if (_useAllStudents) {
+        filtered = List<Student>.from(allStudents);
+      } else {
+        final prefs = await SharedPreferences.getInstance();
+        final presentIds = prefs.getStringList('present_student_ids') ?? [];
+        filtered = allStudents.where((s) => presentIds.contains(s.id.toString())).toList();
+      }
+
+      // Filter out students removed from the current round
+      filtered = filtered.where((s) => !_removedFromRound.contains(s.id)).toList();
+      
+      // Desambiguação de nomes: se houver alunos com o mesmo primeiro nome, adicionar inicial do sobrenome
+      List<Student> desambiguated = [];
+      for (var s in filtered) {
+        final firstName = s.name.trim().split(' ').first;
+        final hasDuplicate = filtered.any((o) => o.id != s.id && o.name.trim().split(' ').first.toLowerCase() == firstName.toLowerCase());
+        
+        if (hasDuplicate) {
+          final parts = s.name.trim().split(' ');
+          String newName = s.name;
+          if (parts.length > 1) {
+            final lastInitial = parts.last.isNotEmpty ? parts.last[0] : '';
+            newName = '$firstName $lastInitial.';
+          }
+          desambiguated.add(Student(
+            id: s.id,
+            name: newName,
+            age: s.age,
+            avatarPath: s.avatarPath,
+            alertMessage: s.alertMessage,
+            points: s.points,
+            photoUrl: s.photoUrl,
+            turma: s.turma,
+            teamId: s.teamId,
+            birthDate: s.birthDate,
+          ));
+        } else {
+          desambiguated.add(s);
+        }
+      }
       
       setState(() {
-        _items = presentStudents;
+        _items = desambiguated;
       });
     } else {
       final teams = await DatabaseHelper.instance.fetchAllTeams();
@@ -77,7 +122,7 @@ class _RouletteScreenState extends State<RouletteScreen> {
   }
 
   void _spin() {
-    if (_items.isNotEmpty && _items.first != 'Nenhum presente' && _items.first != 'Adicione equipes') {
+    if (_items.isNotEmpty) {
       final randomIndex = Random().nextInt(_items.length);
       _lastSelectedIndex = randomIndex;
       _selected.add(randomIndex);
@@ -88,41 +133,94 @@ class _RouletteScreenState extends State<RouletteScreen> {
     if (_lastSelectedIndex >= 0 && _lastSelectedIndex < _items.length) {
       final winnerObj = _items[_lastSelectedIndex];
       final winnerName = winnerObj is String ? winnerObj : winnerObj.name;
+      final winnerPhoto = winnerObj is Student ? winnerObj.photoUrl : null;
       
+      setState(() {
+        if (!_history.contains(winnerName)) {
+          _history.insert(0, winnerName);
+          if (_history.length > 5) {
+            _history.removeLast();
+          }
+        }
+      });
+
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (context) {
-          return AlertDialog(
-            title: const Text('Temos um ganhador! 🎉', textAlign: TextAlign.center),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (winnerObj is! String && winnerObj.photoUrl != null && winnerObj.photoUrl!.isNotEmpty)
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundImage: NetworkImage(ImageHelper.getProxiedImageUrl(winnerObj.photoUrl)) as ImageProvider,
-                  ),
-                const SizedBox(height: 16),
-                Text(
-                  winnerName,
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.presente),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            actions: [
-              Center(
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.azulCeleste,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Sorteado',
+                    style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
                   ),
-                  child: const Text('Eba!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
+                  const SizedBox(height: 16),
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.grey.shade100,
+                    backgroundImage: (winnerPhoto != null && winnerPhoto.isNotEmpty)
+                        ? NetworkImage(ImageHelper.getProxiedImageUrl(winnerPhoto)) as ImageProvider
+                        : null,
+                    child: (winnerPhoto == null || winnerPhoto.isEmpty)
+                        ? const Icon(Icons.person, size: 48, color: Colors.grey)
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    winnerName,
+                    style: const TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.azulCeleste,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Manter na roleta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(height: 8),
+                      if (winnerObj is Student) ...[
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _removedFromRound.add(winnerObj.id);
+                            });
+                            Navigator.pop(context);
+                            _loadData();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                            foregroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Remover desta rodada', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _spin();
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Girar novamente', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           );
         }
       );
@@ -132,27 +230,30 @@ class _RouletteScreenState extends State<RouletteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Roleta de Sorteios', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: AppColors.background,
+        title: const Text(
+          'Roleta de Sorteios',
+          style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        automaticallyImplyLeading: false,
         leading: Navigator.canPop(context) ? IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ) : null,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.azulCeleste),
+            icon: const Icon(Icons.help_outline_rounded, color: AppColors.azulCeleste),
             onPressed: _showHelp,
             tooltip: 'Regras',
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.tune),
+            icon: const Icon(Icons.tune_rounded),
             onSelected: (value) {
               setState(() {
                 _currentMode = value;
+                _removedFromRound.clear();
               });
               _loadData();
             },
@@ -168,103 +269,156 @@ class _RouletteScreenState extends State<RouletteScreen> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Modo: $_currentMode',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Modo: $_currentMode',
+                        style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                      ),
+                      if (_currentMode == 'Alunos')
+                        Row(
+                          children: [
+                            const Text('Todos os alunos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 4),
+                            Switch(
+                              value: _useAllStudents,
+                              onChanged: (val) {
+                                setState(() {
+                                  _useAllStudents = val;
+                                });
+                                _loadData();
+                              },
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
                 Expanded(
                   child: _items.isEmpty
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.warning_amber_rounded, size: 64, color: Colors.amber),
-                              const SizedBox(height: 12),
-                              Text(
-                                _currentMode == 'Alunos' 
-                                    ? 'Nenhum aluno encontrado ou presente!' 
-                                    : 'Nenhuma equipe cadastrada!',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _currentMode == 'Alunos' 
-                                    ? 'Faça a chamada para habilitar o sorteio.' 
-                                    : 'Crie equipes para habilitar o sorteio.',
-                                style: const TextStyle(color: Colors.grey),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.casino_outlined, size: 64, color: AppColors.azulCeleste),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _currentMode == 'Alunos' 
+                                      ? 'Nenhum aluno encontrado ou presente!' 
+                                      : 'Nenhuma equipe cadastrada!',
+                                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _currentMode == 'Alunos' 
+                                      ? 'Faça a chamada ou marque "Todos os alunos" para liberar a roleta.' 
+                                      : 'Crie equipes para habilitar o sorteio.',
+                                  style: const TextStyle(fontFamily: 'Nunito', color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                                if (_currentMode == 'Alunos') ...[
+                                  const SizedBox(height: 20),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())).then((_) => _loadData());
+                                    },
+                                    icon: const Icon(Icons.how_to_reg_rounded),
+                                    label: const Text('Fazer Chamada Agora', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.azulCeleste,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         )
                       : Padding(
                           padding: const EdgeInsets.all(32.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 16,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: FortuneWheel(
-                              selected: _selected.stream,
-                              animateFirst: false,
-                              indicators: [
-                                FortuneIndicator(
-                                  alignment: Alignment.topCenter,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Transform.translate(
-                                        offset: const Offset(0, 3),
-                                        child: const TriangleIndicator(
-                                          color: Colors.black26,
-                                        ),
+                          child: FortuneWheel(
+                            selected: _selected.stream,
+                            animateFirst: false,
+                            indicators: [
+                              FortuneIndicator(
+                                alignment: Alignment.topCenter,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Transform.translate(
+                                      offset: const Offset(0, 3),
+                                      child: const TriangleIndicator(
+                                        color: Colors.black26,
                                       ),
-                                      const TriangleIndicator(
-                                        color: Color(0xFFEF4444),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    const TriangleIndicator(
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                              items: [
-                                for (var item in _items)
-                                  FortuneItem(
-                                    child: _buildItemChild(item),
-                                    style: FortuneItemStyle(
-                                      color: _getColorForItem(item is String ? item : item.name),
-                                      borderColor: Colors.white,
-                                      borderWidth: 2,
+                              ),
+                            ],
+                            items: [
+                              for (var item in _items)
+                                FortuneItem(
+                                  child: RotatedBox(
+                                    quarterTurns: 0,
+                                    child: Text(
+                                      item is String ? item : item.name.split(' ').first,
+                                      style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                                     ),
                                   ),
-                              ],
-                              onAnimationEnd: () {
-                                _showWinnerPopup();
-                              },
-                            ),
+                                  style: FortuneItemStyle(
+                                    color: _getColorForItem(item is String ? item : item.name),
+                                    borderColor: Colors.white,
+                                    borderWidth: 2,
+                                  ),
+                                ),
+                            ],
+                            onAnimationEnd: () {
+                              _showWinnerPopup();
+                            },
                           ),
                         ),
                 ),
+                if (_history.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Últimos Sorteados:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: _history.map((h) => Chip(
+                            backgroundColor: Colors.white,
+                            side: BorderSide(color: Colors.grey.shade200),
+                            label: Text(h, style: const TextStyle(fontSize: 11, fontFamily: 'Fredoka')),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Padding(
-                  padding: const EdgeInsets.all(32.0),
+                  padding: const EdgeInsets.fromLTRB(24.0, 12, 24, 24),
                   child: ElevatedButton(
                     onPressed: _items.isEmpty ? null : _spin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.azulCeleste,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 64),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
                     ),
-                    child: const Text('GIRAR A ROLETA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    child: const Text('GIRAR A ROLETA', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -272,29 +426,7 @@ class _RouletteScreenState extends State<RouletteScreen> {
     );
   }
 
-  Widget _buildItemChild(dynamic item) {
-    if (item is String) {
-      return Text(item, style: const TextStyle(fontWeight: FontWeight.bold));
-    } else {
-      // It's a Student
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (item.photoUrl != null && item.photoUrl!.isNotEmpty) ...[
-            CircleAvatar(
-              radius: 12,
-               backgroundImage: NetworkImage(ImageHelper.getProxiedImageUrl(item.photoUrl)) as ImageProvider,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      );
-    }
-  }
-
   Color _getColorForItem(String item) {
-    // Alternar cores dinamicamente baseado na string para a roleta ficar colorida
     final colors = [
       AppColors.azulCeleste,
       AppColors.amareloSol,

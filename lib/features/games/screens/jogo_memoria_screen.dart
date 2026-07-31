@@ -48,6 +48,7 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
     const JogoMemoriaIcon(Icons.key_rounded, Color(0xFF475569)), // Key
   ];
 
+  List<JogoMemoriaIcon> _activeIlustracoes = [];
   late List<JogoMemoriaIcon> _cartas;
   List<bool> _reveladas = [];
   List<bool> _encontradas = [];
@@ -61,7 +62,53 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
   @override
   void initState() {
     super.initState();
+    _activeIlustracoes = List.from(_ilustracoesBiblicas);
     _loadTeams();
+    _loadActiveLessonPlan();
+  }
+
+  Future<void> _loadActiveLessonPlan() async {
+    final plan = await DatabaseHelper.instance.fetchLessonOfTheWeek();
+    if (plan != null) {
+      final text = '${plan.title} ${plan.storyTopics} ${plan.objective}'.toLowerCase();
+      
+      final scores = <JogoMemoriaIcon, int>{};
+      for (final icon in _ilustracoesBiblicas) {
+        int score = 0;
+        if (icon.iconData == Icons.sailing_rounded && (text.contains('barco') || text.contains('mar') || text.contains('tempestade') || text.contains('noé') || text.contains('jonas') || text.contains('pescador') || text.contains('peixe'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.water_drop_rounded && (text.contains('água') || text.contains('mar') || text.contains('rio') || text.contains('chuva') || text.contains('dilúvio'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.pets_rounded && (text.contains('leão') || text.contains('animais') || text.contains('arca') || text.contains('daniel'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.local_fire_department_rounded && (text.contains('fogo') || text.contains('sarça') || text.contains('espírito') || text.contains('poder'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.favorite_rounded && (text.contains('amor') || text.contains('coração') || text.contains('amar') || text.contains('deus'))) {
+          score += 5;
+        }
+        if (icon.iconData == Icons.emoji_events_rounded && (text.contains('rei') || text.contains('davi') || text.contains('coroa') || text.contains('vitória') || text.contains('golias'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.music_note_rounded && (text.contains('música') || text.contains('louvor') || text.contains('harpa') || text.contains('cantar'))) {
+          score += 10;
+        }
+        if (icon.iconData == Icons.wb_sunny_rounded && (text.contains('sol') || text.contains('estrela') || text.contains('dia') || text.contains('luz') || text.contains('criação'))) {
+          score += 10;
+        }
+        scores[icon] = score;
+      }
+      
+      final sorted = List<JogoMemoriaIcon>.from(_ilustracoesBiblicas);
+      sorted.sort((a, b) => (scores[b] ?? 0).compareTo(scores[a] ?? 0));
+      
+      setState(() {
+        _activeIlustracoes = sorted;
+      });
+    }
   }
 
   Future<void> _loadTeams() async {
@@ -85,7 +132,7 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
     int numPares = 12;
     int numCartas = numPares * 2;
     
-    List<JogoMemoriaIcon> ilustracoesSelecionadas = _ilustracoesBiblicas.take(numPares).toList();
+    List<JogoMemoriaIcon> ilustracoesSelecionadas = _activeIlustracoes.take(numPares).toList();
     _cartas = [...ilustracoesSelecionadas, ...ilustracoesSelecionadas];
     _cartas.shuffle();
     _reveladas = List.filled(numCartas, false);

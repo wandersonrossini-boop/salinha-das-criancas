@@ -127,8 +127,8 @@ class _TeamsScreenState extends State<TeamsScreen> {
         return StatefulBuilder(
           builder: (context, setStateModal) {
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              elevation: 10,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 450),
                 child: Container(
@@ -372,134 +372,97 @@ class _TeamsScreenState extends State<TeamsScreen> {
         final team = _teams[index];
         final teamColor = Color(team.color);
 
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Container(
-            // Identidade da equipe na borda esquerda do Card
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border(left: BorderSide(color: teamColor, width: 6)),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.grey.shade200, width: 1),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: teamColor.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.shield_rounded, color: teamColor, size: 28),
-                  ),
-                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          team.name,
-                          style: const TextStyle(
-                            fontFamily: 'Fredoka',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, color: AppColors.amareloSol, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${team.points} Pontos',
-                              style: const TextStyle(
-                                fontFamily: 'Fredoka',
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF475569),
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(color: teamColor, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                team.name,
+                                style: const TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Builder(
-                          builder: (context) {
-                            final teamStudents = _allStudents.where((s) => s.teamId == team.id).toList();
-                            if (teamStudents.isNotEmpty) {
-                              return Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: teamStudents.map((s) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.grey.shade100),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 10,
-                                          backgroundImage: s.photoUrl != null && s.photoUrl!.isNotEmpty
-                                              ? NetworkImage(ImageHelper.getProxiedImageUrl(s.photoUrl))
-                                              : null,
-                                          child: s.photoUrl == null || s.photoUrl!.isEmpty
-                                              ? Text(s.name[0].toUpperCase(), style: const TextStyle(fontSize: 8, fontFamily: 'Fredoka', fontWeight: FontWeight.bold))
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          s.name,
-                                          style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${s.age}a',
-                                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            } else {
-                              return const Text(
-                                'Nenhum membro escalado.',
-                                style: TextStyle(fontFamily: 'Nunito', fontSize: 11.5, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
-                              );
-                            }
-                          },
+                        const SizedBox(height: 8),
+                        Text(
+                          '${team.points}',
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            fontSize: 44,
+                            fontWeight: FontWeight.bold,
+                            color: teamColor,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          onPressed: () => _showMembersModal(team),
+                          icon: const Icon(Icons.people_alt_rounded, size: 14, color: Color(0xFF64748B)),
+                          label: const Text(
+                            'Ver Membros',
+                            style: TextStyle(fontFamily: 'Fredoka', fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(50, 24),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  // Painel de Ações Agrupadas
+                  const SizedBox(width: 16),
                   Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(
-                        onPressed: () => _showTeamModal(team),
-                        icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF64748B), size: 24),
-                        tooltip: 'Editar / Excluir Equipe',
-                      ),
                       Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            onPressed: () => _addPoints(team, -10),
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.alerta, size: 22),
-                          ),
-                          IconButton(
-                            onPressed: () => _addPoints(team, 10),
-                            icon: const Icon(Icons.add_circle_rounded, color: AppColors.verdePasto, size: 30),
-                          ),
+                          _buildQuickScoreButton(team, '+5', 5, Colors.green),
+                          const SizedBox(width: 8),
+                          _buildQuickScoreButton(team, '+10', 10, Colors.green),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildQuickScoreButton(team, '-5', -5, Colors.red),
+                          const SizedBox(width: 8),
+                          _buildQuickScoreButton(team, '✏️', 0, Colors.grey, isEdit: true),
                         ],
                       ),
                     ],
@@ -507,6 +470,118 @@ class _TeamsScreenState extends State<TeamsScreen> {
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildQuickScoreButton(Team team, String text, int value, Color color, {bool isEdit = false}) {
+    return SizedBox(
+      width: 46,
+      height: 38,
+      child: ElevatedButton(
+        onPressed: () {
+          if (isEdit) {
+            _showTeamModal(team);
+          } else {
+            _addPoints(team, value);
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isEdit ? Colors.grey.shade50 : color.withOpacity(0.06),
+          foregroundColor: color,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: isEdit ? Colors.grey.shade200 : color.withOpacity(0.2), width: 1),
+          ),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: 'Fredoka',
+            fontSize: isEdit ? 14 : 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMembersModal(Team team) {
+    final teamColor = Color(team.color);
+    final teamStudents = _allStudents.where((s) => s.teamId == team.id).toList();
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(color: teamColor, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Membros - ${team.name}',
+                    style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (teamStudents.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: Center(
+                    child: Text(
+                      'Nenhum membro escalado nesta equipe.',
+                      style: TextStyle(fontFamily: 'Nunito', fontSize: 14, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: teamStudents.length,
+                    itemBuilder: (context, idx) {
+                      final s = teamStudents[idx];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 18,
+                          backgroundImage: s.photoUrl != null && s.photoUrl!.isNotEmpty
+                              ? NetworkImage(ImageHelper.getProxiedImageUrl(s.photoUrl))
+                              : null,
+                          child: s.photoUrl == null || s.photoUrl!.isEmpty
+                              ? Text(s.name[0].toUpperCase(), style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12))
+                              : null,
+                        ),
+                        title: Text(
+                          s.name,
+                          style: const TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                        ),
+                        subtitle: Text(
+                          '${s.age} anos',
+                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF94A3B8)),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
           ),
         );
       },

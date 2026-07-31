@@ -28,6 +28,41 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
 
   List<Map<String, dynamic>> _etapas = [];
 
+  int _expandedIndex = 0;
+  final Map<int, GlobalKey> _cardKeys = {};
+  final Map<int, ExpansionTileController> _controllers = {};
+
+  ExpansionTileController _getController(int index) {
+    return _controllers.putIfAbsent(index, () => ExpansionTileController());
+  }
+
+  GlobalKey _getCardKey(int index) {
+    return _cardKeys.putIfAbsent(index, () => GlobalKey());
+  }
+
+  void _navigateToStep(int newIndex) {
+    _getController(_expandedIndex).collapse();
+
+    setState(() {
+      _expandedIndex = newIndex;
+    });
+
+    _getController(newIndex).expand();
+
+    // Aguarda a animação do ExpansionTile/Accordion concluir antes de rolar
+    Future.delayed(const Duration(milliseconds: 250), () {
+      final context = _getCardKey(newIndex).currentContext;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+          alignment: 0.05, // Coloca o topo do card levemente abaixo do topo da tela
+        );
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -528,78 +563,579 @@ Boa semana a todas as famílias! 🙏
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator()) 
-        : ListView.builder(
-            padding: const EdgeInsets.all(12.0), // Reduzido de 16
-            itemCount: _etapas.length,
-            itemBuilder: (context, index) {
-              final etapa = _etapas[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12), // Reduzido de 24
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 3, // Reduzido de 6
-                child: ExpansionTile(
-                  initiallyExpanded: index == 0,
-                  iconColor: etapa['color'],
-                  collapsedIconColor: etapa['color'],
-                  title: Text(
-                    etapa['title'],
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: etapa['color']), // Reduzido de 26
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0), // Reduzido de 24
-                      child: Text(
-                        etapa['content'],
-                        style: const TextStyle(fontSize: 15, height: 1.4, color: AppColors.textPrimary), // Reduzido de 24 / 1.6
-                        textAlign: TextAlign.left,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-      bottomNavigationBar: _isLoading ? null : SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        : Column(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
-                  },
-                  icon: const Icon(Icons.how_to_reg_rounded, size: 20),
-                  label: const Text('Fazer Chamada', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.amareloSol,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              if (_etapas.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 4.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Etapa ${_expandedIndex + 1} de ${_etapas.length}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                          Text(
+                            _etapas[_expandedIndex]['title'].toString().split(' ').sublist(1).join(' '),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: _etapas[_expandedIndex]['color'], fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (_expandedIndex + 1) / _etapas.length,
+                          backgroundColor: Colors.grey[100],
+                          valueColor: AlwaysStoppedAnimation<Color>(_etapas[_expandedIndex]['color'].withOpacity(0.8)),
+                          minHeight: 3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamsScreen()));
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12.0),
+                  itemCount: _etapas.length,
+                  itemBuilder: (context, index) {
+                    final etapa = _etapas[index];
+                    final isActive = index == _expandedIndex;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Card(
+                        key: _getCardKey(index),
+                        elevation: 0,
+                        margin: EdgeInsets.zero,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: isActive ? etapa['color'].withOpacity(0.3) : Colors.grey.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: ExpansionTile(
+                          backgroundColor: Colors.transparent,
+                          collapsedBackgroundColor: Colors.transparent,
+                          controller: _getController(index),
+                          initiallyExpanded: index == _expandedIndex,
+                          iconColor: etapa['color'],
+                          collapsedIconColor: etapa['color'],
+                          title: Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: etapa['color'],
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  etapa['title'],
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          onExpansionChanged: (expanded) {
+                            if (expanded) {
+                              for (int i = 0; i < _etapas.length; i++) {
+                                if (i != index) {
+                                  _getController(i).collapse();
+                                }
+                              }
+                              setState(() {
+                                _expandedIndex = index;
+                              });
+                              Future.delayed(const Duration(milliseconds: 250), () {
+                                final context = _getCardKey(index).currentContext;
+                                if (context != null) {
+                                  Scrollable.ensureVisible(
+                                    context,
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeInOut,
+                                    alignment: 0.05,
+                                  );
+                                }
+                              });
+                            }
+                          },
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildEtapaContent(index, etapa, _currentPlan),
+                                  if (index < _etapas.length - 1) ...[
+                                    const SizedBox(height: 12),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _navigateToStep(index + 1),
+                                        icon: const Icon(Icons.arrow_forward, size: 16),
+                                        label: const Text('Próxima Etapa'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: etapa['color'],
+                                          foregroundColor: Colors.white,
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    const SizedBox(height: 12),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            // 1. Tentar salvar/atualizar no banco com isolamento de erro
+                                            try {
+                                              if (_currentPlan != null) {
+                                                await DatabaseHelper.instance.markLessonAsCompleted(_currentPlan!.id);
+                                              }
+                                            } catch (dbError) {
+                                              debugPrint('Erro ao atualizar banco (ignorado para evitar crash): $dbError');
+                                            }
+
+                                            if (!context.mounted) return;
+
+                                            // 2. Feedback ao usuário
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('🎉 Ministração concluída com sucesso!'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+
+                                            // 3. Fechar tela com segurança sem estourar rota
+                                            if (Navigator.canPop(context)) {
+                                              Navigator.pop(context);
+                                            } else {
+                                              Navigator.pushReplacementNamed(context, '/');
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Erro capturado no botão de encerramento: $e');
+                                            // Fallback absoluto: garante que o app volta para a Home e NUNCA mostra tela azul
+                                            if (context.mounted) {
+                                              if (Navigator.canPop(context)) {
+                                                Navigator.pop(context);
+                                              } else {
+                                                Navigator.pushReplacementNamed(context, '/');
+                                              }
+                                            }
+                                          }
+                                        },
+                                        icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                                        label: const Text('Finalizar Ministração'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.verdePasto,
+                                          foregroundColor: Colors.white,
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
-                  icon: const Icon(Icons.group_add_rounded, size: 20),
-                  label: const Text('Criar Equipes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.azulCeleste,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
                 ),
               ),
             ],
           ),
-        ),
+    );
+  }
+
+  Widget _buildEtapaContent(int index, Map<String, dynamic> etapa, LessonPlan? plan) {
+    if (plan == null) {
+      return Text(
+        etapa['content'],
+        style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+        textAlign: TextAlign.left,
+      );
+    }
+    
+    switch (index) {
+      case 0: // Quebra-gelo / Introdução
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              etapa['content'],
+              style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+              textAlign: TextAlign.left,
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
+                },
+                icon: const Icon(Icons.how_to_reg_rounded, size: 16),
+                label: const Text('Fazer Chamada da Turma'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.azulCeleste,
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        );
+      case 1: // História Bíblica
+        return _buildStoryTopicsContent(plan.storyTopics, plan.keyVerse);
+      case 2: // Quiz
+        if (_quizQuestions.isEmpty) {
+          return Text(
+            etapa['content'],
+            style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+            textAlign: TextAlign.left,
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.help_center_rounded, size: 16, color: AppColors.laranjaCriativo),
+                SizedBox(width: 6),
+                Text('Perguntas do Quiz', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._quizQuestions.map((q) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade200, width: 0.8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('• ${q['question']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1E293B))),
+                      const SizedBox(height: 8),
+                      _AnswerToggleWidget(answer: q['answer'].toString(), color: etapa['color']),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      case 3: // Atividade / Dinâmica
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildDynamicActivityContent(plan.dynamicActivity, etapa['color']),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamsScreen()));
+                },
+                icon: const Icon(Icons.group_add_rounded, size: 16),
+                label: const Text('Dividir em Equipes'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.roxoAcolhedor,
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        );
+      default:
+        return Text(
+          etapa['content'],
+          style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+          textAlign: TextAlign.left,
+        );
+    }
+  }
+
+  Widget _buildStoryTopicsContent(String text, String keyVerse) {
+    final lines = text.split('\n');
+    final children = <Widget>[];
+
+    children.add(Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bookmark_outline_rounded, size: 16, color: Colors.black54),
+              SizedBox(width: 6),
+              Text('Versículo do Dia', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            keyVerse,
+            style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, color: Colors.black87, height: 1.5),
+          ),
+        ],
+      ),
+    ));
+
+    List<String> objectiveLines = [];
+    List<String> storytellingLines = [];
+    List<String> tipLines = [];
+    List<String> genericLines = [];
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+
+      if (trimmed.toLowerCase().contains('objetivo') || trimmed.toLowerCase().startsWith('alvo')) {
+        objectiveLines.add(trimmed);
+      } else if (trimmed.toLowerCase().contains('como contar') || trimmed.toLowerCase().startsWith('roteiro') || trimmed.startsWith('•') || trimmed.startsWith('-')) {
+        storytellingLines.add(trimmed);
+      } else if (trimmed.toLowerCase().contains('dica') || trimmed.toLowerCase().contains('aplicação')) {
+        tipLines.add(trimmed);
+      } else {
+        genericLines.add(trimmed);
+      }
+    }
+
+    if (objectiveLines.isNotEmpty || genericLines.isNotEmpty) {
+      children.add(const SizedBox(height: 12));
+      children.add(Divider(height: 1, color: Colors.grey[200]));
+      children.add(const SizedBox(height: 12));
+      children.add(const Row(
+        children: [
+          Icon(Icons.track_changes_rounded, size: 16, color: Colors.black54),
+          SizedBox(width: 6),
+          Text('🎯 Objetivo / Introdução', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+        ],
+      ));
+      children.add(const SizedBox(height: 6));
+      for (final line in [...objectiveLines, ...genericLines]) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0),
+          child: Text(line, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+        ));
+      }
+    }
+
+    if (storytellingLines.isNotEmpty) {
+      children.add(const SizedBox(height: 12));
+      children.add(Divider(height: 1, color: Colors.grey[200]));
+      children.add(const SizedBox(height: 12));
+      children.add(const Row(
+        children: [
+          Icon(Icons.theater_comedy_rounded, size: 16, color: Colors.black54),
+          SizedBox(width: 6),
+          Text('🎭 Como contar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+        ],
+      ));
+      children.add(const SizedBox(height: 6));
+      for (final line in storytellingLines) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0),
+          child: Text(line, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+        ));
+      }
+    }
+
+    if (tipLines.isNotEmpty) {
+      children.add(const SizedBox(height: 12));
+      children.add(Divider(height: 1, color: Colors.grey[200]));
+      children.add(const SizedBox(height: 12));
+      children.add(const Row(
+        children: [
+          Icon(Icons.lightbulb_outline_rounded, size: 16, color: Colors.black54),
+          SizedBox(width: 6),
+          Text('💡 Dica para o professor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+        ],
+      ));
+      children.add(const SizedBox(height: 6));
+      for (final line in tipLines) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0),
+          child: Text(line, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+        ));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+
+  Widget _buildDynamicActivityContent(String text, Color color) {
+    final lines = text.split('\n');
+    final children = <Widget>[];
+    
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      
+      if (trimmed.toLowerCase().startsWith('materiais') || trimmed.toLowerCase().startsWith('material')) {
+        children.add(const SizedBox(height: 12));
+        children.add(const Row(
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 16, color: AppColors.roxoAcolhedor),
+            SizedBox(width: 6),
+            Text('📦 Materiais', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.roxoAcolhedor)),
+          ],
+        ));
+        children.add(const SizedBox(height: 4));
+        children.add(Text(trimmed.split(':').sublist(1).join(':').trim(), style: const TextStyle(fontSize: 15)));
+      } else if (trimmed.toLowerCase().startsWith('objetivo')) {
+        children.add(const SizedBox(height: 12));
+        children.add(const Row(
+          children: [
+            Icon(Icons.track_changes_rounded, size: 16, color: AppColors.roxoAcolhedor),
+            SizedBox(width: 6),
+            Text('🎯 Objetivo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.roxoAcolhedor)),
+          ],
+        ));
+        children.add(const SizedBox(height: 4));
+        children.add(Text(trimmed.split(':').sublist(1).join(':').trim(), style: const TextStyle(fontSize: 15)));
+      } else if (trimmed.toLowerCase().startsWith('passo') || trimmed.toLowerCase().startsWith('como fazer')) {
+        children.add(const SizedBox(height: 12));
+        children.add(const Row(
+          children: [
+            Icon(Icons.directions_run_rounded, size: 16, color: AppColors.roxoAcolhedor),
+            SizedBox(width: 6),
+            Text('👣 Passo a passo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.roxoAcolhedor)),
+          ],
+        ));
+        children.add(const SizedBox(height: 4));
+        children.add(Text(trimmed.split(':').sublist(1).join(':').trim(), style: const TextStyle(fontSize: 15)));
+      } else if (trimmed.toLowerCase().startsWith('tempo') || trimmed.toLowerCase().startsWith('duração')) {
+        children.add(const SizedBox(height: 12));
+        children.add(const Row(
+          children: [
+            Icon(Icons.access_time_rounded, size: 16, color: AppColors.roxoAcolhedor),
+            SizedBox(width: 6),
+            Text('⏱ Tempo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.roxoAcolhedor)),
+          ],
+        ));
+        children.add(const SizedBox(height: 4));
+        children.add(Text(trimmed.split(':').sublist(1).join(':').trim(), style: const TextStyle(fontSize: 15)));
+      } else {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0),
+          child: Text(trimmed, style: const TextStyle(fontSize: 15)),
+        ));
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+}
+
+class _AnswerToggleWidget extends StatefulWidget {
+  final String answer;
+  final Color color;
+  const _AnswerToggleWidget({required this.answer, required this.color});
+
+  @override
+  State<_AnswerToggleWidget> createState() => _AnswerToggleWidgetState();
+}
+
+class _AnswerToggleWidgetState extends State<_AnswerToggleWidget> {
+  bool _show = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _show = !_show),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_show ? Icons.visibility_off : Icons.visibility, size: 15, color: widget.color),
+                const SizedBox(width: 6),
+                Text(
+                  _show ? 'Esconder resposta' : '👁️ Mostrar resposta',
+                  style: TextStyle(color: widget.color, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 6.0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade100, width: 0.5),
+              ),
+              child: Text(
+                'Resposta: ${widget.answer}',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 14),
+              ),
+            ),
+          ),
+          crossFadeState: _show ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/students/models/student.dart';
 import '../../features/ai_planner/models/lesson_plan.dart';
 import '../../features/teams/models/team.dart';
@@ -118,6 +119,11 @@ class DatabaseHelper {
     return snapshot.docs.map((doc) => LessonPlan.fromMap(doc.data())).toList();
   }
 
+  Future<LessonPlan?> fetchLessonOfTheWeek() async {
+    final plans = await fetchAllLessonPlans();
+    return plans.isNotEmpty ? plans.first : null;
+  }
+
   // --- Operações de Histórico de Chamada ---
   Future<int> insertAttendance(String date, List<int> presentIds) async {
     final id = DateTime.now().millisecondsSinceEpoch;
@@ -138,5 +144,17 @@ class DatabaseHelper {
         .orderBy('date', descending: true)
         .get();
     return snapshot.docs.map((doc) => doc.data()).toList();
+  }
+
+  Future<void> markLessonAsCompleted(int? lessonId) async {
+    if (lessonId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('lesson_completed_$lessonId', true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('lesson_plans')
+          .doc(lessonId.toString())
+          .update({'status': 'concluída', 'completed': true});
+    } catch (_) {}
   }
 }

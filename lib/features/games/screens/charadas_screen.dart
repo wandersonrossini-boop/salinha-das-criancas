@@ -5,9 +5,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../teams/models/team.dart';
 import '../../students/models/student.dart';
-import '../../../core/components/mascot/mascot_widget.dart';
-
-enum FaseJogo { preparando, emAndamento, chute, resultado, finalizado }
 
 class CharadasScreen extends StatefulWidget {
   const CharadasScreen({super.key});
@@ -17,19 +14,26 @@ class CharadasScreen extends StatefulWidget {
 }
 
 class _CharadasScreenState extends State<CharadasScreen> {
+  bool _gameStarted = false;
+  String _activeLessonTitle = 'Carregando...';
+  String _ageGroup = '6-8 anos';
+  int _totalRounds = 5;
+  String _gameType = 'Dicas';
+  String _timerConfig = '30s';
+
   List<Team> _teams = [];
   Team? _selectedTeam;
-
   List<Student> _students = [];
   Student? _selectedStudent;
-  
-  bool _assignToTeam = true; // Toggle between Team and Student
+  bool _assignToTeam = true;
 
+  int _currentRound = 1;
   int _timeLeft = 30;
   Timer? _timer;
   bool _timerRunning = false;
+  
+  Map<int, int> _sessionScores = {};
 
-  // Bible Character System with illustrations, category, reference, and fun facts
   final List<Map<String, dynamic>> _personagens = [
     {
       'nome': 'Davi',
@@ -39,8 +43,13 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'categoria': 'Antigo Testamento',
       'dicas': [
         'Fui um pastor de ovelhas no campo.',
-        'Toquei harpa com muito amor para acalmar um rei.',
-        'Derrotei o gigante Golias usando apenas uma funda e uma pedra.'
+        'Toquei harpa para acalmar o rei Saul.',
+        'Derrotei o gigante Golias com uma funda.'
+      ],
+      'mimicas': [
+        'Imite tocar harpa suavemente',
+        'Imite girar uma funda no ar e lançar',
+        'Imite a queda de um gigante no chão'
       ]
     },
     {
@@ -50,9 +59,14 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'referencia': 'Livro de Jonas',
       'categoria': 'Antigo Testamento',
       'dicas': [
-        'Fugi da presença do Senhor em um grande barco.',
-        'Fui jogado no mar durante uma assustadora tempestade.',
+        'Fugi da presença do Senhor em um navio.',
+        'Fui jogado no mar durante uma grande tempestade.',
         'Fiquei três dias na barriga de um grande peixe!'
+      ],
+      'mimicas': [
+        'Imite o balanço de um barco na tempestade',
+        'Imite nadar desesperadamente',
+        'Imite abrir uma bocarra gigante de peixe'
       ]
     },
     {
@@ -62,9 +76,14 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'referencia': 'Êxodo 3',
       'categoria': 'Antigo Testamento',
       'dicas': [
-        'Fui colocado num cesto no rio Nilo quando bebê.',
-        'Deus falou comigo através de uma sarça que ardia em fogo.',
-        'Abri o Mar Vermelho estendendo meu cajado.'
+        'Fui colocado em um cesto de vime no rio Nilo.',
+        'Deus falou comigo por meio de uma sarça em chamas.',
+        'Abri o Mar Vermelho estendendo o meu cajado.'
+      ],
+      'mimicas': [
+        'Imite segurar e estender um cajado alto',
+        'Imite flutuar suavemente como um cesto',
+        'Imite escrever tábuas de pedra com o dedo'
       ]
     },
     {
@@ -74,9 +93,14 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'referencia': 'Gênesis 6',
       'categoria': 'Antigo Testamento',
       'dicas': [
-        'Deus mandou que eu construísse algo muito grande de madeira.',
+        'Deus mandou eu construir algo muito grande de madeira.',
         'Coloquei casais de todos os tipos de animais lá dentro.',
-        'Sobrevivi a um grande dilúvio flutuando na água.'
+        'Sobrevivi ao dilúvio flutuando em águas profundas.'
+      ],
+      'mimicas': [
+        'Imite cortar e martelar madeira',
+        'Imite fazer som e gestos de chuva caindo',
+        'Imite o caminhar de diferentes animais'
       ]
     },
     {
@@ -87,8 +111,13 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'categoria': 'Antigo Testamento',
       'dicas': [
         'Eu orava a Deus fielmente três vezes ao dia.',
-        'Fui proibido de orar, mas continuei fazendo minhas orações.',
-        'Fui jogado numa cova cheia de leões famintos.'
+        'Fui proibido de orar, mas continuei orando.',
+        'Fui lançado em uma cova cheia de leões famintos.'
+      ],
+      'mimicas': [
+        'Imite juntar as mãos e orar de joelhos',
+        'Imite o rugido de um leão abrindo a boca',
+        'Imite um anjo pousando e fechando a boca do leão'
       ]
     },
     {
@@ -98,9 +127,14 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'referencia': 'Mateus 14',
       'categoria': 'Novo Testamento',
       'dicas': [
-        'Fui um pescador nas águas antes de seguir Jesus.',
-        'Andei sobre as águas do mar, mas comecei a afundar.',
+        'Fui um pescador antes de seguir Jesus.',
+        'Tentei andar sobre as águas, mas senti medo e afundei.',
         'Neguei conhecer Jesus três vezes antes do galo cantar.'
+      ],
+      'mimicas': [
+        'Imite lançar e recolher uma rede de pesca',
+        'Imite caminhar com desequilíbrio e afundar',
+        'Imite um galo batendo asas e cantando'
       ]
     },
     {
@@ -110,63 +144,161 @@ class _CharadasScreenState extends State<CharadasScreen> {
       'referencia': 'Gênesis 37',
       'categoria': 'Antigo Testamento',
       'dicas': [
-        'Ganhava túnicas coloridas do meu pai Jacó.',
-        'Fui vendido como escravo pelos meus próprios irmãos.',
-        'Virei governador do Egito após interpretar os sonhos do Faraó.'
+        'Ganhei uma linda túnica colorida do meu pai.',
+        'Fui vendido como escravo pelos meus irmãos.',
+        'Interpretei os sonhos do Faraó e virei governador.'
+      ],
+      'mimicas': [
+        'Imite vestir e exibir uma roupa muito bonita',
+        'Imite dormir e apontar para a cabeça simulando sonhos',
+        'Imite colocar uma coroa e agir como governador'
       ]
     },
   ];
 
   late Map<String, dynamic> _personagemAtual;
+  List<Map<String, dynamic>> _activePool = [];
+  List<Map<String, dynamic>> _roundCharacters = [];
   int _dicasReveladas = 0;
-  bool _modoMimica = false;
-  
-  // UX State Management
-  FaseJogo _fase = FaseJogo.preparando;
-  int _rodadaAtual = 1;
-  static const int _totalRodadas = 10;
+  bool _isMimicRound = false;
+  bool _revealSecretPressed = false;
 
   @override
   void initState() {
     super.initState();
+    _activePool = List.from(_personagens);
     _loadTeams();
-    _sortearPersonagem(reiniciarRodadas: true);
+    _loadActiveLessonPlan();
   }
 
-  void _sortearPersonagem({bool reiniciarRodadas = false}) {
+  @override
+  void dispose() {
     _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTeams() async {
+    final teams = await DatabaseHelper.instance.fetchAllTeams();
+    final students = await DatabaseHelper.instance.fetchAllStudents();
     setState(() {
-      if (reiniciarRodadas) {
-        _rodadaAtual = 1;
-      } else if (_rodadaAtual < _totalRodadas) {
-        _rodadaAtual++;
-      } else {
-        _rodadaAtual = 1;
+      _teams = teams;
+      if (_teams.isEmpty) {
+        _teams = [
+          Team(id: 1, name: 'Equipe Azul 🔵', color: 0xFF2196F3, points: 0),
+          Team(id: 2, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0),
+        ];
       }
-      _personagemAtual = _personagens[Random().nextInt(_personagens.length)];
-      _dicasReveladas = 0;
-      _fase = FaseJogo.preparando;
-      _timeLeft = 30;
-      _timerRunning = false;
+      _selectedTeam = _teams.first;
+      _students = students;
+      if (_students.isNotEmpty) {
+        _selectedStudent = _students.first;
+      }
+      
+      _sessionScores.clear();
+      for (var t in _teams) {
+        _sessionScores[t.id!] = 0;
+      }
     });
   }
 
-  void _iniciarTimer(int segundos) {
-    _timer?.cancel();
+  Future<void> _loadActiveLessonPlan() async {
+    final plan = await DatabaseHelper.instance.fetchLessonOfTheWeek();
+    if (plan != null) {
+      setState(() {
+        _activeLessonTitle = plan.title;
+        _ageGroup = plan.ageGroup;
+      });
+      final titleLower = plan.title.toLowerCase();
+      final storyLower = plan.storyTopics.toLowerCase();
+      final relevant = _personagens.where((p) {
+        final nome = p['nome'].toString().toLowerCase();
+        return titleLower.contains(nome) || storyLower.contains(nome);
+      }).toList();
+      
+      if (relevant.isNotEmpty) {
+        setState(() {
+          _activePool = relevant;
+          _totalRounds = _activePool.length < _totalRounds ? _activePool.length : _totalRounds;
+        });
+      }
+    } else {
+      setState(() {
+        _activeLessonTitle = 'Geral ou Temático';
+      });
+    }
+  }
+
+  void _startGame() {
+    int available = _activePool.length;
+    if (_totalRounds > available) {
+      _totalRounds = available;
+    }
+
     setState(() {
-      _timeLeft = segundos;
-      _timerRunning = true;
-      _fase = FaseJogo.emAndamento;
+      _currentRound = 1;
+      _gameStarted = true;
+      _sessionScores.clear();
+      for (var t in _teams) {
+        _sessionScores[t.id!] = 0;
+      }
+      
+      // Shuffle active pool without repeating characters during this game session
+      final List<Map<String, dynamic>> tempPool = List.from(_activePool);
+      tempPool.shuffle();
+      _roundCharacters = tempPool.take(_totalRounds).toList();
+      
+      _prepareRound();
     });
+  }
+
+  void _prepareRound() {
+    _timer?.cancel();
+    _timerRunning = false;
+    _revealSecretPressed = false;
+    
+    if (_gameType == 'Dicas') {
+      _isMimicRound = false;
+    } else if (_gameType == 'Mímica') {
+      _isMimicRound = true;
+    } else {
+      _isMimicRound = Random().nextBool();
+    }
+
+    // Pull unique character sequentially
+    _personagemAtual = _roundCharacters[_currentRound - 1];
+    _dicasReveladas = 0;
+
+    // Adjust hints order if age group is older kids (7-11)
+    final ageLower = _ageGroup.toLowerCase();
+    if (ageLower.contains('7-11') || ageLower.contains('9-11') || ageLower.contains('6-8')) {
+      // Invert list so the most conclusive hints (often index 2 in raw pool) are presented last (as Dica 3)
+      final List<String> rawDicas = List<String>.from(_personagemAtual['dicas']);
+      // We want index 0 to be the most indirect one, and index 2 to be the most conclusive one.
+      // Our default pool already has index 0 as broad, index 2 as easiest. No changes required.
+    }
+
+    if (_timerConfig == 'Sem Tempo') {
+      _timeLeft = 0;
+    } else {
+      _timeLeft = int.parse(_timerConfig.replaceAll('s', ''));
+      _startTimer();
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timerRunning = true;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeLeft > 0) {
-        setState(() => _timeLeft--);
+        setState(() {
+          _timeLeft--;
+        });
       } else {
         timer.cancel();
         setState(() {
           _timerRunning = false;
-          _fase = FaseJogo.finalizado;
         });
+        _showRoundTimeout();
       }
     });
   }
@@ -178,121 +310,77 @@ class _CharadasScreenState extends State<CharadasScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  void _resumeTimer() {
+    if (_timerConfig != 'Sem Tempo' && _timeLeft > 0) {
+      _startTimer();
+    }
   }
 
-  void _showHelp() {
+  int _calculatePointsEarned() {
+    if (_isMimicRound) return 20;
+    if (_dicasReveladas == 1) return 30;
+    if (_dicasReveladas == 2) return 20;
+    return 10;
+  }
+
+  void _abrirPainelPalpite() {
+    _pauseTimer();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Quem Sou Eu? 🕵️', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-        content: const Text(
-          '1. Um personagem oculto é sorteado.\n'
-          '2. No Modo Dicas, revele as dicas uma a uma.\n'
-          '3. No Modo Mímica, um aluno vai à frente, vê o segredo e tenta imitar o personagem sem falar.\n'
-          '4. Quem acertar primeiro leva os pontos!'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Entendi!'),
-          )
-        ],
-      )
-    );
-  }
-
-  Future<void> _loadTeams() async {
-    final db = await DatabaseHelper.instance.database;
-    final maps = await db.query('teams');
-    final studentMaps = await db.query('students', orderBy: 'name ASC');
-    
-    setState(() {
-      _teams = maps.map((map) => Team.fromMap(map)).toList();
-      if (_teams.isEmpty) {
-        _teams = [
-          Team(id: 0, name: 'Equipe Azul 🔵', color: 0xFF2196F3, points: 0),
-          Team(id: 0, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0),
-        ];
-      }
-      _selectedTeam = _teams.first;
-      
-      _students = studentMaps.map((map) => Student.fromMap(map)).toList();
-      if (_students.isNotEmpty) {
-        _selectedStudent = _students.first;
-      }
-    });
-  }
-
-  // Opens bottom sheet to pick who answered
-  void _abrirPainelChute() {
-    _pauseTimer();
-    setState(() {
-      _fase = FaseJogo.chute;
-    });
-
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Registrar Palpite', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Quem respondeu? 🕵️', style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 14),
+                  const Text('Quem respondeu?', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          label: const Center(child: Text('Equipes')),
+                          label: const Center(child: Text('Equipe')),
                           selected: _assignToTeam,
                           onSelected: (val) => setModalState(() => _assignToTeam = true),
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: ChoiceChip(
-                          label: const Center(child: Text('Um Aluno')),
+                          label: const Center(child: Text('Aluno')),
                           selected: !_assignToTeam,
                           onSelected: (val) => setModalState(() => _assignToTeam = false),
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   if (_assignToTeam)
                     DropdownButtonFormField<Team>(
                       value: _selectedTeam,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       ),
                       items: _teams.map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
-                      onChanged: (val) => setState(() => _selectedTeam = val),
+                      onChanged: (val) => setModalState(() => _selectedTeam = val),
                     )
                   else
                     DropdownButtonFormField<Student>(
                       value: _selectedStudent,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       ),
                       items: _students.map((s) => DropdownMenuItem(value: s, child: Text(s.name))).toList(),
-                      onChanged: (val) => setState(() => _selectedStudent = val),
+                      onChanged: (val) => setModalState(() => _selectedStudent = val),
                     ),
-                  const SizedBox(height: 24),
-                  const Text('A resposta estava correta? 🤔', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 18),
+                  const Text('O palpite estava correto?', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 15)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -302,33 +390,31 @@ class _CharadasScreenState extends State<CharadasScreen> {
                             Navigator.pop(context);
                             _aplicarChuteAcerto();
                           },
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text('Sim', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
+                          icon: const Icon(Icons.check, color: Colors.white, size: 16),
+                          label: const Text('Sim', style: TextStyle(fontFamily: 'Fredoka', color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pop(context);
                             _aplicarChuteErro();
                           },
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          label: const Text('Não', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
+                          icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                          label: const Text('Não', style: TextStyle(fontFamily: 'Fredoka', color: Colors.white)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            backgroundColor: Colors.orange.shade400,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             );
@@ -338,176 +424,195 @@ class _CharadasScreenState extends State<CharadasScreen> {
     );
   }
 
-  Future<void> _aplicarChuteAcerto() async {
-    // Add points automatically
-    if (_assignToTeam && _selectedTeam != null) {
-      if (_selectedTeam!.id != 0) {
-        final db = await DatabaseHelper.instance.database;
-        final updatedTeam = Team(
-          id: _selectedTeam!.id,
-          name: _selectedTeam!.name,
-          color: _selectedTeam!.color,
-          points: _selectedTeam!.points + 10,
-        );
-        await db.update('teams', updatedTeam.toMap(), where: 'id = ?', whereArgs: [updatedTeam.id]);
-      }
-    }
+  void _aplicarChuteAcerto() {
+    int points = _calculatePointsEarned();
     
-    setState(() {
-      _fase = FaseJogo.resultado;
-    });
+    if (_assignToTeam && _selectedTeam != null) {
+      final currentScore = _sessionScores[_selectedTeam!.id!] ?? 0;
+      _sessionScores[_selectedTeam!.id!] = currentScore + points;
+    }
 
-    // Recompensa comemorativa imediata
-    final vencedor = _assignToTeam ? (_selectedTeam?.name ?? '') : (_selectedStudent?.name ?? '');
+    final winnerName = _assignToTeam ? (_selectedTeam?.name ?? 'Equipe') : (_selectedStudent?.name ?? 'Aluno');
+    _showRoundWinnerDialog(winnerName, points);
+  }
+
+  void _aplicarChuteErro() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const MascotWidget(action: MascotAction.love, width: 80, height: 80),
-            const SizedBox(height: 10),
-            const Text('Parabéns!', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 24)),
-            const SizedBox(height: 6),
-            Text('$vencedor acertou!', textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, color: AppColors.verdePasto)),
-            const Text('+10 pontos!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.laranjaCriativo)),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 12),
-            Text(
-              'Era: ${_personagemAtual['nome']} ${_personagemAtual['emoji']}',
-              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Ainda não foi dessa vez', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.orange)),
+        content: const Text('Deseja continuar tentando com novos palpites ou prefere revelar a resposta agora?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _resumeTimer();
+            },
+            child: const Text('Continuar tentando'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showRoundWinnerDialog('Ninguém', 0);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.laranjaCriativo, foregroundColor: Colors.white),
+            child: const Text('Revelar resposta'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRoundTimeout() {
+    _showRoundWinnerDialog('Ninguém', 0);
+  }
+
+  void _showRoundWinnerDialog(String winnerName, int pointsEarned) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  pointsEarned > 0 ? 'Acerto' : 'Fim do Tempo',
+                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
+                ),
+                const SizedBox(height: 12),
+                if (pointsEarned > 0) ...[
+                  Text('$winnerName acertou!', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text('+$pointsEarned pontos!', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+                ] else ...[
+                  const Text('O segredo foi revelado sem acertos!', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ],
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                Text(
+                  'Segredo: ${_personagemAtual['nome']} ${_personagemAtual['emoji']}',
+                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _personagemAtual['historia'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                  child: Text('Ref: ${_personagemAtual['referencia']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 46,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      if (_currentRound < _totalRounds) {
+                        setState(() {
+                          _currentRound++;
+                        });
+                        _prepareRound();
+                      } else {
+                        _showEndGameDialog();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.azulCeleste,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      _currentRound < _totalRounds ? 'Próxima Rodada' : 'Ver Resultados',
+                      style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              _personagemAtual['historia'],
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _sortearPersonagem();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.azulCeleste,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                minimumSize: const Size(180, 48),
-              ),
-              child: const Text('Continuar Jogando', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-            )
-          ],
+          ),
         ),
       ),
     );
   }
 
-  void _aplicarChuteErro() {
-    setState(() {
-      _fase = FaseJogo.emAndamento;
-    });
+  void _showEndGameDialog() {
+    List<Map<String, dynamic>> rank = [];
+    for (var t in _teams) {
+      rank.add({
+        'name': t.name,
+        'points': _sessionScores[t.id] ?? 0,
+        'color': t.color,
+      });
+    }
+    rank.sort((a, b) => b['points'].compareTo(a['points']));
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('❌ Resposta Incorreta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.red), textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const MascotWidget(expression: MascotExpression.surprised, width: 80, height: 80),
-            const SizedBox(height: 14),
-            const Text('Deseja continuar jogando para tentar novos chutes ou prefere revelar a resposta agora?', textAlign: TextAlign.center),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Fim de Jogo', style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              const Text('Parabéns a todos os participantes!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 18),
+              ...rank.map((r) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(r['name'], style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                    Text('${r['points']} pts', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(r['color']))),
+                  ],
+                ),
+              )),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 44,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _gameStarted = false;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulCeleste,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Jogar Novamente', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                },
+                child: const Text('Voltar ao Menu', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          ),
         ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actionsPadding: const EdgeInsets.only(bottom: 20, left: 16, right: 16),
-        actions: [
-          SizedBox(
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _iniciarTimer(_timeLeft); // Resumes timer
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.azulCeleste,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Continuar Cronômetro', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12)),
-            ),
-          ),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                setState(() {
-                  _fase = FaseJogo.finalizado;
-                });
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Revelar Resposta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12)),
-            ),
-          ),
-        ],
-      )
-    );
-  }
-
-  Widget _buildFaseTracker() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildTrackerItem('🟣', 'Preparando', _fase == FaseJogo.preparando),
-          _buildTrackerItem('🟢', 'Andamento', _fase == FaseJogo.emAndamento),
-          _buildTrackerItem('🟠', 'Chute', _fase == FaseJogo.chute),
-          _buildTrackerItem('🔵', 'Resultado', _fase == FaseJogo.resultado || _fase == FaseJogo.finalizado),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackerItem(String emoji, String text, bool active) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: active ? AppColors.azulCeleste.withOpacity(0.08) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Opacity(
-            opacity: active ? 1.0 : 0.35,
-            child: Text(emoji, style: const TextStyle(fontSize: 16)),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            text,
-            style: TextStyle(
-              fontFamily: 'Fredoka',
-              fontSize: 9.5,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: active ? AppColors.azulCeleste : AppColors.textSecondary.withOpacity(0.55),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -515,7 +620,7 @@ class _CharadasScreenState extends State<CharadasScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Quem Sou Eu?', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
         backgroundColor: Colors.transparent,
@@ -524,488 +629,311 @@ class _CharadasScreenState extends State<CharadasScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.azulCeleste),
-            onPressed: _showHelp,
-            tooltip: 'Regras',
-          ),
-        ],
       ),
-      body: Stack(
-        children: [
-          SafeArea(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              children: [
-                // Phase Tracker
-                _buildFaseTracker(),
-                const SizedBox(height: 12),
+      body: _gameStarted ? _buildGamePlay() : _buildSetup(),
+    );
+  }
 
-                // Game Title Banner Card
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const MascotWidget(pose: MascotPose.front, width: 42, height: 42),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Rodada $_rodadaAtual de $_totalRodadas',
-                              style: TextStyle(fontFamily: 'Nunito', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.azulCeleste.withOpacity(0.9)),
-                            ),
-                            const Text(
-                              'Quem Sou Eu? 🕵️',
-                              style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                            ),
-                            const Text(
-                              'Descubra o personagem antes dos seus amigos!',
-                              style: TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+  Widget _buildSetup() {
+    int available = _activePool.length;
+    
+    List<int> availableRounds = [5, 10, 15].where((r) => r <= available).toList();
+    if (availableRounds.isEmpty && available > 0) {
+      availableRounds = [available];
+    }
+    
+    if (availableRounds.isNotEmpty && !availableRounds.contains(_totalRounds)) {
+      _totalRounds = availableRounds.first;
+    }
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.azulCeleste.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 12),
-
-                // Toggle Modo (Segment Control style)
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _modoMimica = false),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: !_modoMimica ? AppColors.azulCeleste : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '💡 Modo Dicas',
-                              style: TextStyle(
-                                fontFamily: 'Fredoka',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: !_modoMimica ? Colors.white : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _modoMimica = true),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _modoMimica ? AppColors.roxoAcolhedor : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '🎭 Modo Mímica',
-                              style: TextStyle(
-                                fontFamily: 'Fredoka',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: _modoMimica ? Colors.white : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Mascot dialog hint
-                Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const MascotWidget(expression: MascotExpression.thinking, width: 34, height: 34),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          _getMascotSpeech(),
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                      ),
-                    ),
+                    Text('Tema Ativo: $_activeLessonTitle', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                    const SizedBox(height: 4),
+                    Text('Faixa recomendada: $_ageGroup', style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                // Main Game Body Content
-                if (!_modoMimica) ...[
-                  // --- DICAS MODE ---
-                  ...List.generate(3, (index) {
-                    final revelada = index < _dicasReveladas;
-                    final isLocked = index > _dicasReveladas;
-                    
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: revelada ? Colors.white : (isLocked ? Colors.grey.shade100 : Colors.white),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: revelada ? AppColors.azulCeleste.withOpacity(0.6) : (isLocked ? Colors.grey.shade300 : AppColors.azulCeleste),
-                          width: 2.5,
-                        ),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          if (_dicasReveladas == index) {
-                            setState(() => _dicasReveladas++);
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                height: 42,
-                                width: 42,
-                                decoration: BoxDecoration(
-                                  color: revelada ? AppColors.azulCeleste.withOpacity(0.12) : Colors.grey.shade200,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  revelada ? Icons.lightbulb_outline_rounded : (isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded),
-                                  color: revelada ? AppColors.azulCeleste : (isLocked ? Colors.grey.shade500 : AppColors.azulCeleste),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Dica ${index + 1}',
-                                      style: const TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      revelada 
-                                          ? _personagemAtual['dicas'][index] 
-                                          : (isLocked ? 'Bloqueada' : 'Toque para revelar a dica! 🔒'),
-                                      style: TextStyle(
-                                        fontFamily: 'Nunito',
-                                        fontSize: 13,
-                                        fontWeight: revelada ? FontWeight.bold : FontWeight.w500,
-                                        color: revelada ? Color(0xFF1E293B) : Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ] else if (_fase == FaseJogo.preparando || _fase == FaseJogo.emAndamento || _fase == FaseJogo.chute) ...[
-                  // --- MIMICA MODE ---
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        if (_fase == FaseJogo.preparando) ...[
-                          const Icon(Icons.visibility_off_outlined, size: 48, color: AppColors.roxoAcolhedor),
-                          const SizedBox(height: 10),
-                          const Text('Chame o ator à frente', style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 14),
-                          ElevatedButton.icon(
-                            onPressed: _showSecret,
-                            icon: const Icon(Icons.visibility),
-                            label: const Text('Ver Personagem (Em Segredo)', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.roxoAcolhedor,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                        ] else ...[
-                          // Duolingo Big Circular Timer
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Column(
-                              children: [
-                                const Text('⏱️ TEMPO RESTANTE', style: TextStyle(fontFamily: 'Fredoka', fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 10),
-                                Text(
-                                  _timeLeft == 0 ? '⏰ Tempo Esgotado!' : '$_timeLeft segundos',
-                                  style: TextStyle(
-                                    fontFamily: 'Fredoka',
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: _timeLeft <= 10 ? AppColors.alerta : AppColors.azulCeleste,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (_fase == FaseJogo.preparando) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                ElevatedButton(onPressed: () => setState(() => _timeLeft = 30), child: const Text('30s')),
-                                const SizedBox(width: 8),
-                                ElevatedButton(onPressed: () => setState(() => _timeLeft = 45), child: const Text('45s')),
-                                const SizedBox(width: 8),
-                                ElevatedButton(onPressed: () => setState(() => _timeLeft = 60), child: const Text('60s')),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: () => _iniciarTimer(_timeLeft),
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('Iniciar Cronômetro', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.verdePasto,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 54),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              ),
-                            ),
-                          ] else if (_fase == FaseJogo.emAndamento) ...[
-                            ElevatedButton.icon(
-                              onPressed: _abrirPainelChute,
-                              icon: const Icon(Icons.ads_click),
-                              label: const Text('🎯 Arriscar Chute', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.laranjaCriativo,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 60),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              ),
-                            ),
-                          ],
-                        ]
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-
-                // Answer Sheet / Score Control Card
-                if (_fase == FaseJogo.finalizado || _fase == FaseJogo.resultado) ...[
-                  // Premium Bible Character System card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.verdePasto, width: 3),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('🎉 A resposta correta era:', style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        Text(
-                          _personagemAtual['nome'],
-                          style: const TextStyle(fontFamily: 'Fredoka', fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.verdePasto),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _personagemAtual['emoji'],
-                          style: const TextStyle(fontSize: 36),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _personagemAtual['categoria'],
-                            style: TextStyle(fontFamily: 'Nunito', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          _personagemAtual['historia'],
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.menu_book_rounded, size: 16, color: AppColors.azulCeleste),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Referência: ${_personagemAtual['referencia']}',
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _sortearPersonagem,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.azulCeleste,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 54),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: const Text('Próxima Rodada ➡️', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                        )
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  // Bottom Buttons inside preparatory phases
-                  if (!_modoMimica) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _abrirPainelChute,
-                            icon: const Icon(Icons.stars),
-                            label: const Text('Arriscar Chute', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.laranjaCriativo,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _dicasReveladas = 3;
-                                _fase = FaseJogo.finalizado;
-                              });
-                            },
-                            icon: const Icon(Icons.visibility),
-                            label: const Text('Revelar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.roxoAcolhedor,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ]
-                ],
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 16),
+              
+              const Text('Nº de Rodadas:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 8),
+              if (available == 1) ...[
+                const Text(
+                  'Este tema possui 1 personagem disponível.',
+                  style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.laranjaCriativo),
+                ),
+                const SizedBox(height: 8),
               ],
-            ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: availableRounds.map((int val) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      label: Text('$val rodadas'),
+                      selected: _totalRounds == val,
+                      onSelected: (selected) {
+                        if (selected) setState(() => _totalRounds = val);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              const Text('Tipo de Rodada:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: ['Dicas', 'Mímica', 'Alternar'].map((String type) {
+                  return ChoiceChip(
+                    label: Text(type),
+                    selected: _gameType == type,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _gameType = type);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              const Text('Cronômetro:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: ['Sem Tempo', '30s', '45s', '60s'].map((String time) {
+                  return ChoiceChip(
+                    label: Text(time),
+                    selected: _timerConfig == time,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _timerConfig = time);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 28),
+              
+              SizedBox(
+                height: 48,
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (availableRounds.isEmpty || _totalRounds <= 0) ? null : _startGame,
+                  icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                  label: const Text('Iniciar Partida', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulCeleste,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  String _getMascotSpeech() {
-    if (_fase == FaseJogo.resultado || _fase == FaseJogo.finalizado) return 'Gostou de conhecer o personagem? Vamos para o próximo!';
-    if (_fase == FaseJogo.chute) return 'Quem será que vai pontuar agora?';
-    if (_modoMimica) return 'O ator já pode ir à frente ver o segredo e imitar!';
-    if (_dicasReveladas == 0) return 'Dica 1 pronta para ser revelada! Quem arrisca?';
-    if (_dicasReveladas == 1) return 'Uma dica revelada! Querem a dica número 2?';
-    return 'Última dica liberada! Quem sabe a resposta?';
-  }
+  Widget _buildGamePlay() {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Rodada $_currentRound de $_totalRounds',
+                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _isMimicRound ? AppColors.roxoAcolhedor.withOpacity(0.08) : AppColors.azulCeleste.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _isMimicRound ? AppColors.roxoAcolhedor : AppColors.azulCeleste),
+                ),
+                child: Text(
+                  _isMimicRound ? 'Mímica' : 'Dicas',
+                  style: TextStyle(
+                    fontFamily: 'Fredoka',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: _isMimicRound ? AppColors.roxoAcolhedor : AppColors.azulCeleste,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          if (_timerConfig != 'Sem Tempo') ...[
+            Center(
+              child: Text(
+                'Tempo Restante: $_timeLeft s',
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _timeLeft <= 10 ? Colors.red : AppColors.azulCeleste,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
-  void _showSecret() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('🤫 Segredo do Ator', style: TextStyle(fontFamily: 'Fredoka', color: AppColors.roxoAcolhedor, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Você é:', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary)),
-            Text(_personagemAtual['nome'], style: const TextStyle(fontFamily: 'Fredoka', fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.roxoAcolhedor)),
-            const SizedBox(height: 4),
-            Text(_personagemAtual['emoji'], style: const TextStyle(fontSize: 42)),
-            const SizedBox(height: 14),
-            const Text('Ideias para fazer mímica:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 10),
-            ...(_personagemAtual['dicas'] as List).map((dica) => Padding(
-              padding: const EdgeInsets.only(bottom: 6.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          if (!_isMimicRound) ...[
+            ...List.generate(3, (index) {
+              final revelada = index < _dicasReveladas;
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200, width: 1),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 4, offset: const Offset(0, 2))
+                  ],
+                ),
+                child: InkWell(
+                  onTap: () {
+                    if (_dicasReveladas == index) {
+                      setState(() => _dicasReveladas++);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          revelada ? Icons.lightbulb_outline_rounded : Icons.lock_outline_rounded,
+                          color: revelada ? AppColors.azulCeleste : Colors.grey,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Dica ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              const SizedBox(height: 4),
+                              Text(
+                                revelada ? _personagemAtual['dicas'][index] : 'Toque para revelar',
+                                style: TextStyle(color: revelada ? Colors.black87 : Colors.grey, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
                 children: [
-                  const Icon(Icons.star, size: 14, color: AppColors.amareloSol),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(dica, style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold))),
+                  const Text('Mímica', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.roxoAcolhedor)),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTapDown: (_) => setState(() => _revealSecretPressed = true),
+                    onTapUp: (_) => setState(() => _revealSecretPressed = false),
+                    onTapCancel: () => setState(() => _revealSecretPressed = false),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.all(24),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: _revealSecretPressed ? AppColors.roxoAcolhedor.withOpacity(0.08) : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _revealSecretPressed ? AppColors.roxoAcolhedor : Colors.grey.shade300, width: 2),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            _revealSecretPressed ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                            size: 32,
+                            color: _revealSecretPressed ? AppColors.roxoAcolhedor : Colors.grey,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _revealSecretPressed
+                                ? '${_personagemAtual['nome']} ${_personagemAtual['emoji']}'
+                                : 'Pressione e segure para revelar o personagem',
+                            style: TextStyle(
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: _revealSecretPressed ? AppColors.roxoAcolhedor : Colors.grey.shade700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text('Dicas físicas de gestos:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  ...(_personagemAtual['mimicas'] as List).map((m) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Text('• $m', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  )),
                 ],
               ),
-            )).toList(),
+            ),
           ],
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _fase = FaseJogo.preparando;
-                  _timeLeft = 30; // Reset time
-                });
-                Navigator.pop(ctx);
-                _iniciarTimer(30); // Auto-starts timer upon closing secret screen
-              },
+          
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _abrirPainelPalpite,
+              icon: const Icon(Icons.search_rounded, color: Colors.white),
+              label: const Text('Dar um Palpite', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 15)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.azulCeleste,
+                backgroundColor: AppColors.laranjaCriativo,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                minimumSize: const Size(180, 44),
+                elevation: 0,
               ),
-              child: const Text('Começar Mímica!', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
             ),
-          )
+          ),
         ],
-      )
+      ),
     );
   }
 }

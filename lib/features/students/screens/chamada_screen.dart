@@ -58,8 +58,8 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
       context: context,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 10,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 450),
             child: Container(
@@ -407,8 +407,10 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                 .map((entry) => entry.key.toString())
                 .toList();
             await prefs.setStringList('present_student_ids', presentIds);
+            final todayDate = DateTime.now().toIso8601String().split('T')[0];
+            await prefs.setString('attendance_date', todayDate);
 
-            final date = DateTime.now().toIso8601String().split('T')[0];
+            final date = todayDate;
             final presentIntIds = _presenceState.entries
                 .where((entry) => entry.value == 1 || entry.value == 3)
                 .map((entry) => entry.key)

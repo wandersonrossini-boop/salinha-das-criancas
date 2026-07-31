@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -17,11 +18,12 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   QuizState _state = QuizState.setup;
   
-  int _totalQuestions = 10;
+  int _totalQuestions = 5;
   List<Team> _teams = [];
   Team? _activeTeam;
   
   late List<Map<String, dynamic>> _questions;
+  Map<String, dynamic>? _tiebreakerQuestion;
   int _currentQuestionIndex = 0;
   
   int _streak = 0;
@@ -31,77 +33,181 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _answered = false;
   String? _selectedOption;
   
-  // Game statistics
   int _totalCorrectAnswers = 0;
   int _totalSecondsSpent = 0;
+  List<Map<String, dynamic>>? _activeLessonQuestions;
+  String _lessonTitle = '';
+  String _lessonAgeGroup = '';
+
+  Map<int, int> _sessionScores = {};
 
   final List<Map<String, dynamic>> _defaultPool = [
     {
       'question': 'Quem derrotou o gigante Golias?',
       'options': ['Moisés', 'Davi', 'Paulo', 'Pedro'],
       'answer': 'Davi',
-      'curiosidade': 'Davi usou apenas uma pedra e uma funda, mostrando que a confiança em Deus vence qualquer obstáculo!'
+      'curiosidade': 'Davi usou apenas uma pedra e uma funda, mostrando que a confiança em Deus vence qualquer obstáculo!',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quem foi engolido por um grande peixe?',
       'options': ['Elias', 'João', 'Jonas', 'Noé'],
       'answer': 'Jonas',
-      'curiosidade': 'Jonas ficou três dias na barriga do peixe até se arrepender e obedecer ao chamado de Deus.'
+      'curiosidade': 'Jonas ficou três dias na barriga do peixe até se arrepender e obedecer ao chamado de Deus.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quantos dias e noites choveu no dilúvio?',
       'options': ['10', '40', '7', '100'],
       'answer': '40',
-      'curiosidade': 'Depois dos 40 dias de chuva, Deus colocou o arco-íris nas nuvens como um pacto de amor.'
+      'curiosidade': 'Depois dos 40 dias de chuva, Deus colocou o arco-íris nas nuvens como um pacto de amor.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quem abriu o Mar Vermelho?',
       'options': ['Abraão', 'Moisés', 'Josué', 'Davi'],
       'answer': 'Moisés',
-      'curiosidade': 'Moisés estendeu seu cajado obedecendo a Deus, e um vento forte soprou abrindo caminho na água.'
+      'curiosidade': 'Moisés estendeu seu cajado obedecendo a Deus, e um vento forte soprou abrindo caminho na água.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quem foi lançado na cova dos leões?',
       'options': ['Daniel', 'Sadraque', 'Ezequiel', 'José'],
       'answer': 'Daniel',
-      'curiosidade': 'Daniel orava três vezes ao dia e Deus enviou um anjo para fechar a boca dos leões.'
+      'curiosidade': 'Daniel orava três vezes ao dia e Deus enviou um anjo para fechar a boca dos leões.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Qual o nome do anjo que apareceu a Maria?',
       'options': ['Miguel', 'Gabriel', 'Rafael', 'Lúcifer'],
       'answer': 'Gabriel',
-      'curiosidade': 'O anjo Gabriel trouxe a mensagem mais feliz da história: o nascimento de Jesus!'
+      'curiosidade': 'O anjo Gabriel trouxe a mensagem mais feliz da história: o nascimento de Jesus!',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Jesus multiplicou 5 pães e quantos peixinhos?',
       'options': ['2', '3', '5', '7'],
       'answer': '2',
-      'curiosidade': 'Com apenas 5 pães e 2 peixinhos, Jesus alimentou mais de 5 mil pessoas e ainda sobrou comida!'
+      'curiosidade': 'Com apenas 5 pães e 2 peixinhos, Jesus alimentou mais de 5 mil pessoas e ainda sobrou comida!',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quem foi o homem mais forte da Bíblia?',
       'options': ['Davi', 'Golias', 'Sansão', 'Saul'],
       'answer': 'Sansão',
-      'curiosidade': 'A força de Sansão vinha do Espírito do Senhor, mas ele precisava guardar o segredo de consagrado.'
+      'curiosidade': 'A força de Sansão vinha do Espírito do Senhor, mas ele precisava guardar o segredo de consagrado.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Onde Jesus nasceu?',
       'options': ['Jerusalém', 'Nazaré', 'Belém', 'Egito'],
       'answer': 'Belém',
-      'curiosidade': 'Jesus nasceu em uma estrebaria em Belém e foi colocado em uma manjedoura.'
+      'curiosidade': 'Jesus nasceu em uma estrebaria em Belém e foi colocado em uma manjedoura.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
     {
       'question': 'Quantos discípulos Jesus tinha?',
       'options': ['10', '12', '7', '14'],
       'answer': '12',
-      'curiosidade': 'Jesus chamou 12 homens comuns para andarem com Ele e pregarem a Palavra pelo mundo todo.'
+      'curiosidade': 'Jesus chamou 12 homens comuns para andarem com Ele e pregarem a Palavra pelo mundo todo.',
+      'ageGroup': '6-8 anos',
+      'questionType': 'interpretation',
+      'difficulty': 'medium'
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadTeams();
+    _loadGameData();
+  }
+
+  Future<void> _loadGameData() async {
+    await _loadTeams();
+    await _loadQuestionsFromActiveLesson();
+  }
+
+  String _cleanOptionText(String option) {
+    String clean = option.trim();
+    final regexPrefix = RegExp(r'^[a-dA-D]\s*[\)\-\.]\s*|^[rR]esposta:\s*');
+    clean = clean.replaceFirst(regexPrefix, '');
+    return clean.trim();
+  }
+
+  Future<void> _loadQuestionsFromActiveLesson() async {
+    if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
+      return;
+    }
+    final plan = await DatabaseHelper.instance.fetchLessonOfTheWeek();
+    if (plan != null) {
+      setState(() {
+        _lessonTitle = plan.title;
+        _lessonAgeGroup = plan.ageGroup;
+      });
+      if (plan.questions.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(plan.questions);
+          if (decoded is List && decoded.isNotEmpty) {
+            final List<Map<String, dynamic>> parsed = [];
+
+            for (var x in decoded) {
+              final map = Map<String, dynamic>.from(x);
+
+              // Metadados estritamente verificados
+              final questionAgeGroup = map['ageGroup']?.toString();
+              if (questionAgeGroup != null) {
+                if (plan.ageGroup.isNotEmpty && questionAgeGroup != plan.ageGroup) {
+                  continue; // Ignorar por incompatibilidade de idade estruturada
+                }
+              }
+
+              if (map['options'] is! List) {
+                map['options'] = [
+                  map['answer'] ?? '',
+                  'Opção B',
+                  'Opção C',
+                  'Opção D'
+                ];
+              }
+              
+              List<String> rawOptions = (map['options'] as List).map((e) => e.toString()).toList();
+              List<String> cleanedOptions = rawOptions.map((e) => _cleanOptionText(e)).toList();
+              final cleanCorrectAnswer = _cleanOptionText(map['answer'] ?? '');
+              cleanedOptions.shuffle();
+              
+              map['options'] = cleanedOptions;
+              map['answer'] = cleanCorrectAnswer;
+              parsed.add(map);
+            }
+
+            setState(() {
+              _activeLessonQuestions = parsed;
+              _totalQuestions = parsed.isEmpty ? 0 : (parsed.length < 5 ? parsed.length : 5);
+            });
+          }
+        } catch (e) {
+          debugPrint('Erro ao parsear questões do plano de aula: $e');
+        }
+      }
+    }
   }
 
   @override
@@ -116,32 +222,76 @@ class _QuizScreenState extends State<QuizScreen> {
       _teams = teams;
       if (_teams.isEmpty) {
         _teams = [
-          Team(id: 0, name: 'Top da Salinha 🔵', color: 0xFF2196F3, points: 0),
-          Team(id: 0, name: 'Ovelhinhas do Pasto 🟠', color: 0xFFFF5722, points: 0),
+          Team(id: 1, name: 'Top da Salinha 🔵', color: 0xFF2196F3, points: 0),
+          Team(id: 2, name: 'Ovelhinhas do Pasto 🟠', color: 0xFFFF5722, points: 0),
         ];
       }
       _activeTeam = _teams.first;
+      
+      _sessionScores.clear();
+      for (var t in _teams) {
+        _sessionScores[t.id!] = 0;
+      }
     });
   }
 
+  int _getAvailableCount() {
+    return _activeLessonQuestions != null ? _activeLessonQuestions!.length : _defaultPool.length;
+  }
+
   void _startGame() {
-    if (_activeTeam == null) return;
+    if (_activeTeam == null || _totalQuestions <= 0) return;
     
-    _defaultPool.shuffle();
-    if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
-      _questions = List.from(widget.customQuestions!);
-      if (_totalQuestions > _questions.length) {
-        _totalQuestions = _questions.length;
-      }
-    } else {
-      _questions = _defaultPool.take(_totalQuestions).toList();
+    int available = _getAvailableCount();
+    if (_totalQuestions > available) {
+      _totalQuestions = available;
     }
-    
+
+    List<Map<String, dynamic>> sourcePool = [];
+    if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
+      sourcePool = List.from(widget.customQuestions!);
+    } else if (_activeLessonQuestions != null && _activeLessonQuestions!.isNotEmpty) {
+      sourcePool = List.from(_activeLessonQuestions!);
+    } else {
+      final List<Map<String, dynamic>> cleanedDefault = _defaultPool.map((x) {
+        final map = Map<String, dynamic>.from(x);
+        List<String> rawOptions = (map['options'] as List).map((e) => e.toString()).toList();
+        List<String> cleanedOptions = rawOptions.map((e) => _cleanOptionText(e)).toList();
+        map['options'] = cleanedOptions;
+        map['answer'] = _cleanOptionText(map['answer'] ?? '');
+        cleanedOptions.shuffle();
+        return map;
+      }).toList();
+      sourcePool = cleanedDefault;
+    }
+
+    sourcePool.shuffle();
+
+    // Alocação Prévia do Pool de Desempate (Pre-allocated Tiebreaker)
+    if (sourcePool.length > _totalQuestions) {
+      _questions = sourcePool.take(_totalQuestions).toList();
+      _tiebreakerQuestion = sourcePool[_totalQuestions];
+    } else if (sourcePool.length > 1) {
+      _totalQuestions = sourcePool.length - 1;
+      _questions = sourcePool.take(_totalQuestions).toList();
+      _tiebreakerQuestion = sourcePool.last;
+    } else {
+      _questions = sourcePool.take(_totalQuestions).toList();
+      _tiebreakerQuestion = null;
+    }
+
     setState(() {
       _currentQuestionIndex = 0;
       _streak = 0;
       _totalCorrectAnswers = 0;
       _totalSecondsSpent = 0;
+      _answered = false;
+      _selectedOption = null;
+      
+      for (var t in _teams) {
+        _sessionScores[t.id!] = 0;
+      }
+      
       _state = QuizState.playing;
     });
     _startTimer();
@@ -160,7 +310,7 @@ class _QuizScreenState extends State<QuizScreen> {
         });
       } else {
         _timer?.cancel();
-        _processAnswer(false);
+        _processAnswer(false, null);
       }
     });
   }
@@ -177,135 +327,34 @@ class _QuizScreenState extends State<QuizScreen> {
       _selectedOption = option;
     });
 
-    _processAnswer(isCorrect);
+    _processAnswer(isCorrect, option);
   }
 
-  Future<void> _processAnswer(bool isCorrect) async {
+  Future<void> _processAnswer(bool isCorrect, String? selectedOption) async {
     if (!mounted) return;
 
     if (isCorrect) {
       _streak++;
       _totalCorrectAnswers++;
+      
+      int pointsEarned = 100 + (_timeLeft > 0 ? (_timeLeft * 1.5).round() : 0);
+      pointsEarned = pointsEarned > 150 ? 150 : pointsEarned;
+      
+      final currentScore = _sessionScores[_activeTeam!.id!] ?? 0;
+      _sessionScores[_activeTeam!.id!] = currentScore + pointsEarned;
+      
       final updatedTeam = Team(
         id: _activeTeam!.id,
         name: _activeTeam!.name,
         color: _activeTeam!.color,
-        points: _activeTeam!.points + 10,
+        points: _activeTeam!.points + pointsEarned,
       );
-      if (updatedTeam.id != 0) {
+      if (updatedTeam.id != 0 && updatedTeam.id != null) {
         await DatabaseHelper.instance.updateTeam(updatedTeam);
       }
-      
-      final idx = _teams.indexWhere((t) => t.id == _activeTeam!.id);
-      if (idx != -1) {
-        setState(() {
-          _teams[idx] = updatedTeam;
-          _activeTeam = updatedTeam; // Immediate score reflection
-        });
-      }
-
-      if (_streak >= 5) {
-        _switchTeam();
-      }
     } else {
-      _switchTeam();
+      _streak = 0;
     }
-
-    // Exibe Feedback Bottom Dialog lúdico contendo Ficha de Curiosidade
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) {
-        final curiosidade = _questions[_currentQuestionIndex]['curiosidade'] ?? 'Os caminhos de Deus são incríveis!';
-        final correctAnswer = _questions[_currentQuestionIndex]['answer'] as String;
-        
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                    color: isCorrect ? Colors.green : Colors.red,
-                    size: 26,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isCorrect ? 'Correto!' : 'Incorreto!',
-                    style: TextStyle(
-                      fontFamily: 'Fredoka',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: isCorrect ? Colors.green : Colors.red,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              if (!isCorrect) ...[
-                Text(
-                  'A resposta correta era: $correctAnswer',
-                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-                const SizedBox(height: 10),
-              ],
-              
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade100, width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Text('📖 ', style: TextStyle(fontSize: 18)),
-                        Text('Curiosidade Bíblica', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      curiosidade,
-                      style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, height: 1.35, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              _HoverScaleWrapper(
-                onTap: () {
-                  Navigator.pop(context);
-                  _avancarQuiz();
-                },
-                colors: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                child: const SizedBox(
-                  height: 58,
-                  width: double.infinity,
-                  child: Center(
-                    child: Text(
-                      'Próxima Pergunta ➡️',
-                      style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _avancarQuiz() {
@@ -328,7 +377,12 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_teams.length > 1) {
       int currentIndex = _teams.indexWhere((t) => t.id == _activeTeam!.id);
       int nextIndex = (currentIndex + 1) % _teams.length;
-      _activeTeam = _teams[nextIndex];
+      setState(() {
+        _activeTeam = _teams[nextIndex];
+        _answered = false;
+        _selectedOption = null;
+      });
+      _startTimer();
     }
   }
 
@@ -336,13 +390,13 @@ class _QuizScreenState extends State<QuizScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Regras do Quiz 🧩', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Regras do Quiz', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
         content: const Text(
-          '1. Escolha a equipe inicial.\n'
-          '2. A equipe joga até acertar 5 perguntas seguidas.\n'
-          '3. Se a equipe errar, passa a vez imediatamente para a rival.\n'
-          '4. No final, quem tiver mais pontos ganha! Em caso de empate, vocês podem ativar a morte súbita.'
+          '1. As equipes jogam em turnos.\n'
+          '2. Resposta Correta garante 100 pontos base + bônus de tempo.\n'
+          '3. Se a equipe errar ou o tempo acabar, a vez pode ser passada para a outra equipe.\n'
+          '4. Quem acumular a maior pontuação no final é o vencedor!'
         ),
         actions: [
           TextButton(
@@ -357,9 +411,9 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Quiz Bíblico Competitivo', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        title: const Text('Quiz Bíblico', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -368,7 +422,7 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.azulCeleste),
+            icon: const Icon(Icons.help_outline_rounded, color: AppColors.azulCeleste),
             onPressed: _showHelp,
             tooltip: 'Regras',
           )
@@ -380,7 +434,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Widget _buildBody() {
     if (_teams.isEmpty) {
-      return const Center(child: Text("Cadastre equipes primeiro!"));
+      return const Center(child: Text("Carregando equipes..."));
     }
 
     switch (_state) {
@@ -394,73 +448,101 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildSetup() {
+    int available = _getAvailableCount();
+    
+    List<int> chipValues = [];
+    if (available < 5) {
+      chipValues = available > 0 ? [available] : [];
+    } else {
+      chipValues = [5, 10, 15, 20].where((v) => v <= available).toList();
+      if (chipValues.isEmpty && available > 0) {
+        chipValues = [available];
+      }
+    }
+
+    if (chipValues.isNotEmpty && !chipValues.contains(_totalQuestions)) {
+      _totalQuestions = chipValues.first;
+    }
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
         child: Container(
           width: 500,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 12, offset: const Offset(0, 4))
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hero Card Premium
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF1E3A8A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.24), blurRadius: 16, offset: const Offset(0, 8))
-                  ],
+                  color: AppColors.azulCeleste.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.azulCeleste.withOpacity(0.15)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Quiz Bíblico Competitivo 🏆',
-                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                      _lessonTitle.isNotEmpty ? 'Aula: $_lessonTitle' : 'Modo Geral ou Temático',
+                      style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      'Prepare a próxima rodada da competição.',
-                      style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600),
+                      _lessonAgeGroup.isNotEmpty 
+                          ? 'Turma: $_lessonAgeGroup • $available perguntas disponíveis'
+                          : 'Perguntas padrão do app • $available disponíveis',
+                      style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               
-              const Text('Quantidade de Perguntas', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [5, 10, 15, 20].map((int val) {
-                  final active = (_totalQuestions == val);
-                  return ChoiceChip(
-                    label: Text('$val'),
-                    selected: active,
-                    onSelected: (selected) {
-                      if (selected) setState(() => _totalQuestions = val);
-                    },
-                  );
-                }).toList(),
-              ),
+              const Text('Nº de Perguntas para Jogar:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              const SizedBox(height: 8),
+              if (available < 5) ...[
+                Text(
+                  '$available perguntas disponíveis — todas serão utilizadas',
+                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.laranjaCriativo),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (chipValues.isEmpty)
+                const Text(
+                  'Nenhuma pergunta disponível para esta aula.',
+                  style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Colors.red),
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: chipValues.map((int val) {
+                    final active = (_totalQuestions == val);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Text('$val'),
+                        selected: active,
+                        onSelected: (selected) {
+                          if (selected) setState(() => _totalQuestions = val);
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
               const SizedBox(height: 16),
               
-              const Text('Equipe Inicial (Turno Inicial)', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              const Text('Escolha a Equipe Iniciante:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -472,25 +554,22 @@ class _QuizScreenState extends State<QuizScreen> {
                   return GestureDetector(
                     onTap: () => setState(() => _activeTeam = team),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: active ? tColor.withOpacity(0.12) : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(16),
+                        color: active ? tColor.withOpacity(0.08) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: active ? tColor : Colors.grey.shade200,
-                          width: 2,
+                          width: 1.5,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: tColor,
-                              shape: BoxShape.circle,
-                            ),
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(color: tColor, shape: BoxShape.circle),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -508,24 +587,20 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               
-              _HoverScaleWrapper(
-                onTap: _startGame,
-                colors: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                child: const SizedBox(
-                  height: 56,
-                  width: double.infinity,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
-                      SizedBox(width: 8),
-                      Text(
-                        '▶ Iniciar Quiz',
-                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ],
+              SizedBox(
+                height: 48,
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (chipValues.isEmpty || _totalQuestions <= 0) ? null : _startGame,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                  label: const Text('Iniciar Quiz', style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.azulCeleste,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
                   ),
                 ),
               ),
@@ -537,180 +612,161 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildScoreboard() {
-    if (_teams.length == 1) {
-      final t = _teams.first;
-      final tColor = Color(t.color);
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-          ],
-        ),
-        child: Column(
-          children: [
-            const Text('🏆', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 4),
-            Text(
-              t.name,
-              style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 15),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${t.points} pontos',
-              style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 20),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: _teams.map((t) {
-          final tColor = Color(t.color);
-          final isTurn = (_activeTeam?.id == t.id);
-          
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: tColor.withOpacity(isTurn ? 0.12 : 0.04),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: tColor.withOpacity(isTurn ? 0.8 : 0.2), width: isTurn ? 2.5 : 1.0),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.emoji_events, color: tColor, size: 16),
-                const SizedBox(width: 6),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontFamily: 'Fredoka', 
-                    fontWeight: FontWeight.bold, 
-                    color: tColor, 
-                    fontSize: isTurn ? 14 : 12
-                  ),
-                  child: Text('${t.name}: ${t.points}'),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: _teams.map((t) {
+        final tColor = Color(t.color);
+        final isTurn = (_activeTeam?.id == t.id);
+        final score = _sessionScores[t.id] ?? 0;
+        
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isTurn ? tColor.withOpacity(0.08) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isTurn ? tColor : Colors.grey.shade200, width: isTurn ? 2 : 1),
+            boxShadow: [
+              if (isTurn)
+                BoxShadow(color: tColor.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 3))
+            ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                t.name.split(' ').first,
+                style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 12),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$score pts',
+                style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 18),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
   Widget _buildPlaying() {
     final question = _questions[_currentQuestionIndex];
-    final activeColor = Color(_activeTeam!.color);
+    final correctAnswer = question['answer'] as String;
     
-    // Timer color pulsing state
     Color timerColor = AppColors.azulCeleste;
     if (_timeLeft <= 10 && _timeLeft > 5) {
       timerColor = Colors.amber;
-    } else if (_timeLeft <= 5 && _timeLeft > 2) {
-      timerColor = Colors.orange;
-    } else if (_timeLeft <= 2) {
+    } else if (_timeLeft <= 5) {
       timerColor = Colors.red;
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Column(
         children: [
-          // 1. Placar
           _buildScoreboard(),
+          const SizedBox(height: 16),
+          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Pergunta ${_currentQuestionIndex + 1} de $_totalQuestions',
+                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              ),
+              _AnimatedTimerCircle(timeLeft: _timeLeft, timerColor: timerColor),
+            ],
+          ),
           const SizedBox(height: 12),
           
-          // 2. Barra de Progresso
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: (_currentQuestionIndex + 1) / _totalQuestions,
-              minHeight: 8,
+              minHeight: 4,
               backgroundColor: Colors.grey.shade200,
               color: AppColors.azulCeleste,
             ),
           ),
-          const SizedBox(height: 8),
-          
-          // 3. Pergunta X de Y
-          Text(
-            'Pergunta ${_currentQuestionIndex + 1} de $_totalQuestions',
-            style: const TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 10),
-          
-          // 4. Cronometro
-          _AnimatedTimerCircle(timeLeft: _timeLeft, timerColor: timerColor),
-          const SizedBox(height: 10),
-          
-          // 5. Vez da Equipe
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: activeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: activeColor, width: 2)
-            ),
-            child: Text(
-              'Vez da: ${_activeTeam!.name}',
-              style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12, color: activeColor),
-            ),
-          ),
           const SizedBox(height: 16),
           
-          // 6. Pergunta
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            constraints: const BoxConstraints(minHeight: 70),
-            alignment: Alignment.center,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
             child: Text(
               question['question'],
-              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 23, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
               textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 16),
           
-          // 7. Alternativas
           Expanded(
             child: ListView.builder(
-              physics: const BouncingScrollPhysics(),
               itemCount: (question['options'] as List).length,
               itemBuilder: (context, index) {
                 final option = question['options'][index] as String;
-                
+                final cleanOption = option;
+                final prefix = String.fromCharCode(65 + index);
+
+                Color bg = Colors.white;
+                Color borderCol = Colors.grey.shade200;
+                Color textCol = Colors.black87;
+
+                if (_answered) {
+                  if (cleanOption == correctAnswer) {
+                    bg = Colors.green.shade50;
+                    borderCol = Colors.green;
+                    textCol = Colors.green.shade800;
+                  } else if (cleanOption == _selectedOption) {
+                    bg = Colors.red.shade50;
+                    borderCol = Colors.red;
+                    textCol = Colors.red.shade800;
+                  }
+                }
+
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _HoverScaleWrapper(
-                    onTap: _answered ? () {} : () => _checkAnswer(option),
-                    colors: const [Colors.white, Color(0xFFF8FAFC)],
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: InkWell(
+                    onTap: _answered ? null : () => _checkAnswer(cleanOption),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      height: 68,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      child: Text(
-                        option,
-                        style: const TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: borderCol, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: borderCol.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              prefix,
+                              style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold, color: textCol),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              cleanOption,
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: textCol,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -718,100 +774,184 @@ class _QuizScreenState extends State<QuizScreen> {
               },
             ),
           ),
+          
+          if (_answered) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100, width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  const Text('💡 ', style: TextStyle(fontSize: 16)),
+                  Expanded(
+                    child: Text(
+                      question['curiosidade'] ?? 'Resposta correta: $correctAnswer',
+                      style: TextStyle(fontFamily: 'Nunito', fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _switchTeam,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey.shade300),
+                      foregroundColor: Colors.grey.shade700,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Passar a Vez', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _avancarQuiz,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.azulCeleste,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Próxima Pergunta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildFinished() {
-    _teams.sort((a, b) => b.points.compareTo(a.points));
-    bool isTie = _teams.length > 1 && _teams[0].points == _teams[1].points;
+    List<Map<String, dynamic>> finalRanking = [];
+    for (var t in _teams) {
+      finalRanking.add({
+        'name': t.name,
+        'color': t.color,
+        'points': _sessionScores[t.id] ?? 0,
+      });
+    }
+    finalRanking.sort((a, b) => b['points'].compareTo(a['points']));
+    
+    bool isTie = finalRanking.length > 1 && finalRanking[0]['points'] == finalRanking[1]['points'];
+    bool hasTieBreakQuestion = _tiebreakerQuestion != null;
 
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Container(
-          padding: const EdgeInsets.all(32),
+          width: 500,
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
             boxShadow: [
-              BoxShadow(color: AppColors.amareloSol.withOpacity(0.12), blurRadius: 40)
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 20, offset: const Offset(0, 10))
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('🏆', style: TextStyle(fontSize: 54)),
+              const Icon(Icons.emoji_events_rounded, size: 54, color: AppColors.amareloSol),
               const SizedBox(height: 12),
               const Text(
-                'FIM DE RODADA! 🏁',
-                style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
+                'FIM DE RODADA',
+                style: TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
               ),
               const SizedBox(height: 20),
               
               if (isTie) ...[
-                const Text('HOUVE UM EMPATE!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.alerta)),
+                const Text('HOUVE UM EMPATE', style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.alerta)),
                 const SizedBox(height: 16),
-                ElevatedButton(
+                if (hasTieBreakQuestion) ...[
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        // Use pre-allocated tiebreaker
+                        _totalQuestions += 1;
+                        _questions.add(_tiebreakerQuestion!);
+                        _currentQuestionIndex = _totalQuestions - 1;
+                        _tiebreakerQuestion = null; // Used
+                        _answered = false;
+                        _selectedOption = null;
+                        _state = QuizState.playing;
+                      });
+                      _startTimer();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.alerta,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Rodada de Desempate', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                  ),
+                ] else ...[
+                  const Text(
+                    'Terminou empatado! As duas equipes foram muito bem.',
+                    style: TextStyle(fontFamily: 'Nunito', fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ] else ...[
+                Text(
+                  'Equipe Vencedora:\n${finalRanking.first['name']}',
+                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(finalRanking.first['color'])),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Parabéns a todas as crianças! Vocês jogaram muito bem!',
+                  style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                ...finalRanking.map((r) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(r['name'], style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('${r['points']} pts', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(r['color']), fontSize: 14)),
+                    ],
+                  ),
+                )),
+              ],
+              
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 46,
+                width: double.infinity,
+                child: ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      _totalQuestions = 1;
                       _state = QuizState.setup;
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.alerta,
+                    backgroundColor: AppColors.azulCeleste,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
                   ),
-                  child: const Text('Morte Súbita (Desempate)', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                ),
-              ] else ...[
-                Text(
-                  'Equipe Vencedora:\n${_teams.first.name}',
-                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.verdePasto),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Pontuação final: ${_teams.first.points} pts',
-                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Total de acertos: $_totalCorrectAnswers / $_totalQuestions',
-                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
-                ),
-                Text(
-                  'Tempo médio: ${(_totalSecondsSpent / _totalQuestions).toStringAsFixed(1)}s por pergunta',
-                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
-                ),
-              ],
-              
-              const SizedBox(height: 28),
-              _HoverScaleWrapper(
-                onTap: () {
-                  setState(() {
-                    _state = QuizState.setup;
-                  });
-                },
-                colors: const [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                child: const SizedBox(
-                  height: 56,
-                  width: double.infinity,
-                  child: Center(
-                    child: Text(
-                      'Nova Rodada',
-                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
+                  child: const Text('Jogar Novamente', style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Encerrar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.red)),
+                child: const Text('Voltar aos Jogos', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.grey)),
               ),
             ],
           ),
@@ -821,7 +961,6 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 }
 
-// Circular timer component with subtle pulse animations
 class _AnimatedTimerCircle extends StatefulWidget {
   final int timeLeft;
   final Color timerColor;
@@ -873,80 +1012,20 @@ class _AnimatedTimerCircleState extends State<_AnimatedTimerCircle> with SingleT
         alignment: Alignment.center,
         children: [
           SizedBox(
-            width: 70,
-            height: 70,
+            width: 44,
+            height: 44,
             child: CircularProgressIndicator(
               value: widget.timeLeft / 30,
-              strokeWidth: 5.5,
+              strokeWidth: 4,
               backgroundColor: Colors.grey.shade200,
               color: widget.timerColor,
             ),
           ),
           Text(
             '${widget.timeLeft}',
-            style: TextStyle(fontFamily: 'Fredoka', fontSize: 21, fontWeight: FontWeight.bold, color: widget.timerColor),
+            style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: widget.timerColor),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Interactive scale wrapper for clicks
-class _HoverScaleWrapper extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-  final List<Color> colors;
-
-  const _HoverScaleWrapper({
-    required this.child,
-    required this.onTap,
-    required this.colors,
-  });
-
-  @override
-  State<_HoverScaleWrapper> createState() => _HoverScaleWrapperState();
-}
-
-class _HoverScaleWrapperState extends State<_HoverScaleWrapper> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: widget.colors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.colors[0].withOpacity(_isPressed ? 0.12 : 0.06),
-                blurRadius: _isPressed ? 6 : 12,
-                spreadRadius: _isPressed ? -1 : -2,
-                offset: Offset(0, _isPressed ? 2 : 4),
-              ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.12),
-                blurRadius: 4,
-                spreadRadius: -1,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: widget.child,
-        ),
       ),
     );
   }
