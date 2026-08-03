@@ -798,14 +798,19 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  // --- CARD TURMA DE HOJE ---
+  // --- CARD TURMA DE HOJE (PAINEL VIVO, SEM BOTÃO — Experimento 2) ---
+  // A ação de "fazer chamada" já é coberta pelo Hero Card ("Hoje na Aula").
+  // Este card passa a ser só informativo: mostra o retrato da turma agora.
   Widget _buildClassTodayCard(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
       future: _fetchClassTodayData(),
       builder: (context, snapshot) {
         final data = snapshot.data ?? {'teachers': 0, 'students': 0, 'present': 0, 'initiated': 0};
         final bool isInitiated = data['initiated'] == 1;
-        
+        final int students = data['students'] ?? 0;
+        final int present = data['present'] ?? 0;
+        final int absent = (students - present).clamp(0, students);
+
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())),
           child: Container(
@@ -835,46 +840,36 @@ class DashboardContent extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isInitiated) ...[
-                      _buildStatRow('Alunos', '0 presentes'),
-                      const SizedBox(height: 4),
-                      _buildStatRow('Status', 'Chamada não iniciada'),
-                    ] else ...[
-                      _buildStatRow('Alunos', '${data['students']}'),
-                      const SizedBox(height: 4),
-                      _buildStatRow('Presentes', '${data['present']}'),
-                      const SizedBox(height: 4),
-                      _buildStatRow('Status', 'Chamada realizada'),
-                    ],
-                  ],
-                ),
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF34D399), Color(0xFF059669)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: DsElevation.glow(const Color(0xFF10B981)),
+                if (!isInitiated)
+                  Row(
+                    children: [
+                      Icon(Icons.schedule_rounded, color: Colors.grey.shade400, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Chamada ainda não feita hoje',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 11.5,
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatRow('Alunos', '$students'),
+                      const SizedBox(height: 4),
+                      _buildStatRow('Presentes', '$present'),
+                      const SizedBox(height: 4),
+                      _buildStatRow('Ausentes', '$absent'),
+                    ],
                   ),
-                  child: Text(
-                    isInitiated ? 'Ver Chamada' : 'Abrir Chamada',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Fredoka',
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
