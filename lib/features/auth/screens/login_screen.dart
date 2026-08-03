@@ -63,15 +63,13 @@ class _LoginScreenState extends State<LoginScreen> {
           {'id': 'admin', 'nome': 'Administrador', 'email': 'admin'},
           ...teachers,
         ];
-        // Mantém a seleção se ainda existir, senão vai pro primeiro
-        if (_selectedTeacher != null) {
-          final stillExists = _teachersList.any((t) => t['id'] == _selectedTeacher!['id']);
-          if (!stillExists) {
-            _selectedTeacher = _teachersList.first;
-          }
-        } else {
-          _selectedTeacher = _teachersList.first;
-        }
+        // Mantém a seleção pelo ID, mas sempre aponta para o OBJETO da
+        // lista nova (o DropdownButtonFormField compara por identidade
+        // de referência, então reaproveitar o Map antigo quebra o combo).
+        _selectedTeacher = _teachersList.firstWhere(
+          (t) => t['id'] == _selectedTeacher?['id'],
+          orElse: () => _teachersList.first,
+        );
       });
     } catch (e) {
       // Fallback
