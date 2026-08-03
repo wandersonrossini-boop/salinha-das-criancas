@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/screens/login_screen.dart';
 import '../ai_planner/models/lesson_plan.dart';
 import '../../core/db/database_helper.dart';
+import '../../core/services/aula_status_service.dart';
 import '../../core/design_system/colors.dart';
 import '../../core/design_system/typography.dart';
 import '../../core/design_system/elevation.dart';
@@ -592,23 +593,82 @@ class DashboardContent extends StatelessWidget {
   }
 
   // --- CARD HOJE NA AULA ---
+  // Combina o LessonPlan mais recente com o AulaStatus do dia, sem
+  // duplicar dados: quem grava/lê o status é sempre o AulaStatusService.
+  Future<({LessonPlan? plan, AulaStatusResult status})> _fetchTodayClassCardData() async {
+    final planList = await DatabaseHelper.instance.fetchAllLessonPlans();
+    final latestPlan = planList.isNotEmpty ? planList.first : null;
+    final status = await AulaStatusService.getStatus(
+      lessonId: latestPlan?.id,
+      totalEtapas: 5, // Quebra-gelo, História, Quiz, Atividade, Oração
+    );
+    return (plan: latestPlan, status: status);
+  }
+
   Widget _buildTodayClassCard(BuildContext context) {
-    return FutureBuilder<List<LessonPlan>>(
-      future: DatabaseHelper.instance.fetchAllLessonPlans(),
+    return FutureBuilder<({LessonPlan? plan, AulaStatusResult status})>(
+      future: _fetchTodayClassCardData(),
       builder: (context, snapshot) {
-        final planList = snapshot.data;
-        final hasPlan = planList != null && planList.isNotEmpty;
-        final latestPlan = hasPlan ? planList.first : null;
-        
+        final latestPlan = snapshot.data?.plan;
+        final aulaStatus = snapshot.data?.status.status ?? AulaStatus.semPlano;
+
         final title = latestPlan != null ? latestPlan.title : 'Nenhuma aula ativa';
         final subtitle = latestPlan != null ? 'Versículo: ${latestPlan.keyVerse}' : 'Abra uma aula para ver aqui';
-        final status = latestPlan != null ? 'Ativa' : 'Aguardando';
-        final statusColor = latestPlan != null ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
+
+        // Badge (canto superior direito) e CTA (rodapé do card) reagem
+        // ao AulaStatus, sem alterar o layout/identidade visual do card.
+        String badgeText;
+        Color badgeColor;
+        String ctaText;
+        IconData ctaIcon;
+        switch (aulaStatus) {
+          case AulaStatus.semPlano:
+            badgeText = 'Aguardando';
+            badgeColor = const Color(0xFFF59E0B);
+            ctaText = 'Planejar Aula';
+            ctaIcon = Icons.auto_awesome_rounded;
+            break;
+          case AulaStatus.chamadaPendente:
+            badgeText = 'Chamada pendente';
+            badgeColor = const Color(0xFFF59E0B);
+            ctaText = 'Fazer Chamada';
+            ctaIcon = Icons.how_to_reg_rounded;
+            break;
+          case AulaStatus.aulaNaoIniciada:
+            badgeText = 'Pronta pra começar';
+            badgeColor = const Color(0xFF10B981);
+            ctaText = 'Iniciar Aula';
+            ctaIcon = Icons.play_arrow_rounded;
+            break;
+          case AulaStatus.aulaEmAndamento:
+            final etapaAtual = (snapshot.data?.status.etapaAtual ?? 0) + 1;
+            final totalEtapas = snapshot.data?.status.totalEtapas ?? 5;
+            badgeText = 'Etapa $etapaAtual de $totalEtapas';
+            badgeColor = const Color(0xFF10B981);
+            ctaText = 'Continuar Aula';
+            ctaIcon = Icons.arrow_forward_rounded;
+            break;
+          case AulaStatus.aulaConcluida:
+            badgeText = 'Concluída';
+            badgeColor = const Color(0xFF10B981);
+            ctaText = 'Ver Relatório';
+            ctaIcon = Icons.description_rounded;
+            break;
+        }
+
         final icon = latestPlan != null ? Icons.auto_awesome : Icons.event_busy_rounded;
         final iconColor = latestPlan != null ? DsColors.primaryBlue : DsColors.textDisabled;
 
         return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClassModeScreen())),
+          onTap: () {
+            if (aulaStatus == AulaStatus.chamadaPendente) {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
+            } else if (aulaStatus == AulaStatus.semPlano) {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiPlannerScreen()));
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ClassModeScreen()));
+            }
+          },
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -635,16 +695,16 @@ class DashboardContent extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
+                        color: badgeColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        status,
+                        badgeText,
                         style: TextStyle(
                           fontFamily: 'Fredoka',
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: statusColor,
+                          color: badgeColor,
                         ),
                       ),
                     ),
@@ -699,6 +759,36 @@ class DashboardContent extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [DsColors.primaryBlue, const Color(0xFF2563EB)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: DsElevation.glow(DsColors.primaryBlue),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(ctaIcon, color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        ctaText,
+                        style: const TextStyle(
+                          fontFamily: 'Fredoka',
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

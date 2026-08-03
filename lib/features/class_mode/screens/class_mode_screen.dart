@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
+import '../../../core/services/aula_status_service.dart';
 import '../../ai_planner/models/lesson_plan.dart';
 import '../../games/screens/quiz_screen.dart';
 import '../../roulette/screens/roulette_screen.dart';
@@ -49,6 +50,15 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
 
     _getController(newIndex).expand();
 
+    // Persiste a etapa atual para a Home poder mostrar "Continuar Aula"
+    // caso o professor saia e volte ao Modo Ministrar no mesmo dia.
+    if (_currentPlan?.id != null) {
+      AulaStatusService.salvarEtapaAtual(
+        lessonId: _currentPlan!.id!,
+        etapaIndex: newIndex,
+      );
+    }
+
     // Aguarda a animação do ExpansionTile/Accordion concluir antes de rolar
     Future.delayed(const Duration(milliseconds: 250), () {
       final context = _getCardKey(newIndex).currentContext;
@@ -74,6 +84,14 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
     if (plans.isNotEmpty) {
       _currentPlan = plans.first;
       _buildEtapas(_currentPlan!);
+      if (_currentPlan!.id != null) {
+        // Ao abrir o Modo Ministrar, já registra "etapa 0" para a Home
+        // deixar de mostrar "Iniciar Aula" e passar a mostrar "Continuar Aula".
+        AulaStatusService.salvarEtapaAtual(
+          lessonId: _currentPlan!.id!,
+          etapaIndex: 0,
+        );
+      }
     } else {
       // Fallback
       _buildEtapasFallback();
