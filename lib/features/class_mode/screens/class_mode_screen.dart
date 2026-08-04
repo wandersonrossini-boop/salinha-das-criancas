@@ -1214,7 +1214,7 @@ Boa semana a todas as famílias! 🙏
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesMenuScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => GamesMenuScreen(linkedLessonTitle: plan.title)));
               },
               icon: const Icon(Icons.palette_rounded, size: 18),
               label: const Text('🎨 Atividades e Desenhos de Apoio'),

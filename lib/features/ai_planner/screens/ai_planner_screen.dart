@@ -105,14 +105,9 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
         _selectedIdade,
         _selectedTempo,
       );
-        
-      await DatabaseHelper.instance.insertLessonPlan(plan);
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aula gerada e salva com sucesso! 🎉')),
-        );
-        Navigator.pop(context);
+        _showGeneratedPlanModal(plan);
       }
     } catch (e) {
       if (mounted) {
@@ -123,6 +118,82 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _showGeneratedPlanModal(LessonPlan plan) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Plano Gerado com Sucesso! 🎉',
+                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tema: ${plan.title}', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.azulCeleste)),
+                    const SizedBox(height: 8),
+                    Text('Objetivo: ${plan.objective}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                    const SizedBox(height: 12),
+                    Text('Versículo: ${plan.keyVerse}', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    const SizedBox(height: 12),
+                    const Text('Tópicos da História:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(plan.storyTopics, style: const TextStyle(fontFamily: 'Nunito', fontSize: 13.5)),
+                    const SizedBox(height: 12),
+                    const Text('Dinâmica do Dia:', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(plan.dynamicActivity, style: const TextStyle(fontFamily: 'Nunito', fontSize: 13.5)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () async {
+                await DatabaseHelper.instance.insertLessonPlan(plan);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('🎉 Aula definida como Aula de Hoje e salva no banco!')),
+                  );
+                  Navigator.pop(context);
+                }
+              },
+              icon: const Icon(Icons.rocket_launch_rounded),
+              label: const Text('🚀 Definir como Aula de Hoje', style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -208,6 +279,34 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          'Davi e Golias',
+                          'Arca de Noé',
+                          'Parábola do Semeador',
+                          'Armadura de Deus',
+                          'Nascimento de Jesus',
+                        ].map((suggested) => Padding(
+                          padding: const EdgeInsets.only(right: 6.0),
+                          child: ActionChip(
+                            label: Text(suggested, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5)),
+                            backgroundColor: Colors.blue.shade50,
+                            side: BorderSide(color: Colors.blue.shade200),
+                            onPressed: () {
+                              setState(() {
+                                _temaController.text = suggested;
+                                _temaController.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: suggested.length),
+                                );
+                              });
+                            },
+                          ),
+                        )).toList(),
                       ),
                     ),
                     const SizedBox(height: 14),
