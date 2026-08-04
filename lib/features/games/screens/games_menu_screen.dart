@@ -3,7 +3,7 @@ import 'quiz_screen.dart';
 import 'charadas_screen.dart';
 import 'cronometro_screen.dart';
 import 'jogo_memoria_screen.dart';
-import 'jogo_sete_erros_screen.dart';
+import 'match_pairs_screen.dart';
 import '../../roulette/screens/roulette_screen.dart';
 
 import 'batata_quente_screen.dart';
@@ -142,15 +142,15 @@ class GamesMenuScreen extends StatelessWidget {
                         Expanded(
                           child: _buildGameCard(
                             context: context,
-                            title: 'Jogo dos 7 Erros',
+                            title: 'Ligue os Pares',
                             imageAsset: 'assets/images/games/game_sete_erros.png',
-                            category: 'ATENÇÃO',
+                            category: 'ASSOCIAÇÃO',
                             bgColor: const Color(0xFFECF9FC),
                             borderColor: const Color(0xFFBFEFEE),
                             badgeBgColor: const Color(0xFFDBF5F8),
                             badgeTextColor: const Color(0xFF2C7A7B),
                             imageScale: 1.15,
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoSeteErrosScreen())),
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MatchPairsScreen())),
                           ),
                         ),
                       ],
