@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../../core/services/aula_status_service.dart';
@@ -85,6 +86,16 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
       _currentPlan = plans.first;
       _buildEtapas(_currentPlan!);
       if (_currentPlan!.id != null) {
+        // Registra o horário de início da aula se ainda não gravado no dia
+        final prefs = await SharedPreferences.getInstance();
+        final startedKey = 'lesson_started_at_${_currentPlan!.id}';
+        if (!prefs.containsKey(startedKey)) {
+          await prefs.setString(startedKey, DateTime.now().toIso8601String());
+        }
+        if (_currentPlan!.title.isNotEmpty) {
+          await prefs.setString('current_lesson_theme_${_currentPlan!.id}', _currentPlan!.title);
+        }
+
         // Ao abrir o Modo Ministrar, já registra "etapa 0" para a Home
         // deixar de mostrar "Iniciar Aula" e passar a mostrar "Continuar Aula".
         AulaStatusService.salvarEtapaAtual(
@@ -733,9 +744,12 @@ Boa semana a todas as famílias! 🙏
                                           try {
                                             // 1. Tentar salvar/atualizar no banco com isolamento de erro
                                             try {
-                                              if (_currentPlan != null) {
-                                                await DatabaseHelper.instance.markLessonAsCompleted(_currentPlan!.id);
-                                              }
+                                               if (_currentPlan != null) {
+                                                 await DatabaseHelper.instance.markLessonAsCompleted(
+                                                   _currentPlan!.id,
+                                                   themeTitle: _currentPlan!.title,
+                                                 );
+                                               }
                                             } catch (dbError) {
                                               debugPrint('Erro ao atualizar banco (ignorado para evitar crash): $dbError');
                                             }

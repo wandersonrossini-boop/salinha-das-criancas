@@ -144,12 +144,16 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         final selectedId = _selectedTeacher!['id'] as String;
+        final selectedName = _selectedTeacher!['nome'] as String? ?? 'Professor';
         final email = _selectedTeacher!['email'] as String;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('current_teacher_id', selectedId);
+        await prefs.setString('current_teacher_name', selectedName);
 
         if (selectedId == 'admin') {
           if (password == 'admin2026') {
             if (_keepLoggedIn) {
-              final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('keep_logged_in', true);
               await prefs.setString('user_role', 'admin');
             }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/students/models/student.dart';
 import '../../features/ai_planner/models/lesson_plan.dart';
@@ -124,17 +125,36 @@ class DatabaseHelper {
     return plans.isNotEmpty ? plans.first : null;
   }
 
-  // --- Operações de Histórico de Chamada ---
-  Future<int> insertAttendance(String date, List<int> presentIds) async {
+  // --- Operações de Histórico de Chamada e Sessão de Aula ---
+  Future<int> insertAttendance(
+    String date,
+    List<int> presentIds, {
+    int? lessonId,
+    String? teacherId,
+    String? teacherName,
+    String? themeTitle,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
     final id = DateTime.now().millisecondsSinceEpoch;
-    await FirebaseFirestore.instance
-        .collection('attendance_history')
-        .doc(id.toString())
-        .set({
+
+    final tId = teacherId ?? prefs.getString('current_teacher_id') ?? 'admin';
+    final tName = teacherName ?? prefs.getString('current_teacher_name') ?? 'Professor';
+
+    final data = <String, dynamic>{
       'id': id,
       'date': date,
       'present_student_ids': presentIds.join(','),
-    });
+      'teacher_id': tId,
+      'teacher_name': tName,
+    };
+
+    if (lessonId != null) data['lesson_id'] = lessonId;
+    if (themeTitle != null) data['theme_title'] = themeTitle;
+
+    await FirebaseFirestore.instance
+        .collection('attendance_history')
+        .doc(id.toString())
+        .set(data, SetOptions(merge: true));
     return id;
   }
 
@@ -146,17 +166,65 @@ class DatabaseHelper {
     return snapshot.docs.map((doc) => doc.data()).toList();
   }
 
-  Future<void> markLessonAsCompleted(int? lessonId) async {
+  Future<void> markLessonAsCompleted(
+    int? lessonId, {
+    String? teacherId,
+    String? teacherName,
+    String? themeTitle,
+  }) async {
     if (lessonId == null) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('lesson_completed_$lessonId', true);
     final hoje = DateTime.now().toIso8601String().split('T')[0];
+
+    await prefs.setBool('lesson_completed_$lessonId', true);
     await prefs.setString('lesson_completed_${lessonId}_data', hoje);
+
+    // Captura timestamp de início ou calcula padrão
+    final startedAtStr = prefs.getString('lesson_started_at_$lessonId');
+    final endedAt = DateTime.now();
+    DateTime startedAt;
+    if (startedAtStr != null) {
+      startedAt = DateTime.parse(startedAtStr);
+    } else {
+      startedAt = endedAt.subtract(const Duration(minutes: 45));
+    }
+
+    int durationMinutes = endedAt.difference(startedAt).inMinutes;
+    if (durationMinutes <= 0) durationMinutes = 45;
+
+    final tId = teacherId ?? prefs.getString('current_teacher_id') ?? 'admin';
+    final tName = teacherName ?? prefs.getString('current_teacher_name') ?? 'Professor';
+    final title = themeTitle ?? prefs.getString('current_lesson_theme_$lessonId') ?? 'Plano de Aula';
+
     try {
       await FirebaseFirestore.instance
           .collection('lesson_plans')
           .doc(lessonId.toString())
           .update({'status': 'concluída', 'completed': true});
     } catch (_) {}
+
+    try {
+      final docId = '${hoje}_$lessonId';
+      final presentIdsList = prefs.getStringList('present_student_ids') ?? [];
+
+      await FirebaseFirestore.instance
+          .collection('attendance_history')
+          .doc(docId)
+          .set({
+        'id': docId,
+        'date': hoje,
+        'lesson_id': lessonId,
+        'teacher_id': tId,
+        'teacher_name': tName,
+        'theme_title': title,
+        'started_at': startedAt.toIso8601String(),
+        'ended_at': endedAt.toIso8601String(),
+        'duration_minutes': durationMinutes,
+        'present_student_ids': presentIdsList.join(','),
+        'completed': true,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Erro ao atualizar attendance_history: $e');
+    }
   }
 }

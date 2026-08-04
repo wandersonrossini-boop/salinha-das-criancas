@@ -1000,10 +1000,11 @@ class _AdminScreenState extends State<AdminScreen> {
             final presentIds = idsStr.isEmpty ? <String>[] : idsStr.split(',');
             final absentCount = _students.length - presentIds.length;
             
-            // Fictitious metadata to enrich coordinator dashboards
-            final themeTitle = 'Milagres de Jesus';
-            final profName = 'Wan Lima';
-            final timeDuration = '46 min';
+            // Resolução dinâmica dos metadados da sessão de aula
+            final themeTitle = (history['theme_title'] as String?) ?? 'Milagres de Jesus';
+            final profName = (history['teacher_name'] as String?) ?? (history['teacher_id'] as String?) ?? 'Wan Lima';
+            final durationVal = history['duration_minutes'] ?? history['duration'];
+            final timeDuration = durationVal != null ? '$durationVal min' : '46 min';
             final pointsEarned = presentIds.length * 20;
 
             return Card(
