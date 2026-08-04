@@ -187,14 +187,14 @@ class DashboardContent extends StatelessWidget {
               _buildTodayClassCard(context),
               const SizedBox(height: 16),
 
-              // Grid de 2 Colunas: Turma de Hoje e Próxima Atividade
+              // Grid de 2 Colunas: Turma de Hoje e Card Contextual (Experimento 3)
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(child: _buildClassTodayCard(context)),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildNextActivityCard(context)),
+                    Expanded(child: _buildContextualCard(context)),
                   ],
                 ),
               ),
@@ -936,91 +936,98 @@ class DashboardContent extends StatelessWidget {
     };
   }
 
-  // --- CARD PRÓXIMA ATIVIDADE ---
-  Widget _buildNextActivityCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE3CE).withOpacity(0.95),
-        borderRadius: DsRadius.large,
-        border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-        boxShadow: _floatingShadow(),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Próxima Atividade',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Fredoka',
-              fontSize: 14,
-              color: Color(0xFF1E293B),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _floatingShadow(),
-            ),
-            child: const Icon(
-              Icons.calendar_today_rounded,
-              color: Color(0xFFEF4444),
-              size: 20,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Column(
-            children: const [
-              Text(
-                'Nenhuma Agendada',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Fredoka',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
+  // --- CARD CONTEXTUAL (Experimento 3) ---
+  Widget _buildContextualCard(BuildContext context) {
+    return FutureBuilder<LessonPlan?>(
+      future: DatabaseHelper.instance.fetchLessonOfTheWeek(),
+      builder: (context, planSnapshot) {
+        final plan = planSnapshot.data;
+        return FutureBuilder<AulaStatusResult>(
+          future: AulaStatusService.getStatus(lessonId: plan?.id),
+          builder: (context, snapshot) {
+            final status = snapshot.data?.status ?? AulaStatus.semPlano;
+
+            IconData icon;
+            Color accentColor;
+            String title;
+            String description;
+
+            switch (status) {
+              case AulaStatus.semPlano:
+              case AulaStatus.chamadaPendente:
+                icon = Icons.volunteer_activism_rounded;
+                accentColor = const Color(0xFFD97706);
+                title = 'Preparação';
+                description = 'Revise o plano de aula e faça a recepção acolhedora dos alunos!';
+                break;
+
+              case AulaStatus.aulaNaoIniciada:
+              case AulaStatus.aulaEmAndamento:
+                icon = Icons.bolt_rounded;
+                accentColor = const Color(0xFF2563EB);
+                title = 'Apoio da Etapa';
+                description = 'Mantenha o foco na etapa atual e acompanhe a participação da turma.';
+                break;
+
+              case AulaStatus.aulaConcluida:
+                icon = Icons.stars_rounded;
+                accentColor = const Color(0xFF16A34A);
+                title = 'Missão Cumprida!';
+                description = 'Parabéns pelo ministério hoje! Relatório e presença salvos com sucesso.';
+                break;
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE3CE).withOpacity(0.95),
+                borderRadius: DsRadius.large,
+                border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+                boxShadow: _floatingShadow(),
               ),
-              SizedBox(height: 2),
-              Text(
-                'Para hoje',
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 10,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: accentColor, size: 22),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 10.5,
+                      color: Color(0xFF475569),
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesMenuScreen())),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DsColors.primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              elevation: 0,
-            ),
-            child: const Text(
-              'Iniciar Atividade',
-              style: TextStyle(
-                fontFamily: 'Fredoka',
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          )
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

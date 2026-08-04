@@ -64,21 +64,23 @@ class AulaStatusService {
     final prefs = await SharedPreferences.getInstance();
     final hoje = _hoje();
 
-    // 1. Aula já concluída? (flag já gravada por DatabaseHelper.markLessonAsCompleted)
+    // 1. Chamada foi feita hoje? (reaproveita 'attendance_date' já existente)
+    final attendanceDate = prefs.getString(_kAttendanceDateKey) ?? '';
+    final chamadaFeitaHoje = attendanceDate == hoje;
+    if (!chamadaFeitaHoje) {
+      return AulaStatusResult(status: AulaStatus.chamadaPendente, totalEtapas: totalEtapas);
+    }
+
+    // 2. Aula já concluída hoje? (valida a flag de conclusão + data da conclusão)
     final concluida = prefs.getBool('lesson_completed_$lessonId') ?? false;
-    if (concluida) {
+    final concluidaData = prefs.getString('lesson_completed_${lessonId}_data') ?? '';
+    final concluidaHoje = concluida && (concluidaData.isEmpty || concluidaData == hoje);
+    if (concluidaHoje) {
       return AulaStatusResult(
         status: AulaStatus.aulaConcluida,
         etapaAtual: totalEtapas - 1,
         totalEtapas: totalEtapas,
       );
-    }
-
-    // 2. Chamada foi feita hoje? (reaproveita 'attendance_date' já existente)
-    final attendanceDate = prefs.getString(_kAttendanceDateKey) ?? '';
-    final chamadaFeitaHoje = attendanceDate == hoje;
-    if (!chamadaFeitaHoje) {
-      return AulaStatusResult(status: AulaStatus.chamadaPendente, totalEtapas: totalEtapas);
     }
 
     // 3. Existe etapa salva para hoje?

@@ -150,6 +150,8 @@ class DatabaseHelper {
     if (lessonId == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('lesson_completed_$lessonId', true);
+    final hoje = DateTime.now().toIso8601String().split('T')[0];
+    await prefs.setString('lesson_completed_${lessonId}_data', hoje);
     try {
       await FirebaseFirestore.instance
           .collection('lesson_plans')
