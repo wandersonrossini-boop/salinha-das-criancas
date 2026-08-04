@@ -433,15 +433,18 @@ class _AdminScreenState extends State<AdminScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          titleSpacing: 16,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               Text(
                 'Painel Administrativo 🇨🇭',
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
               ),
               Text(
                 'Gestão da escola bíblica infantil',
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
               ),
             ],

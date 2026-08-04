@@ -91,7 +91,17 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
     if (durationMinutes <= 0) durationMinutes = 45;
 
     final allStudents = await DatabaseHelper.instance.fetchAllStudents();
-    final presentIds = prefs.getStringList('present_student_ids') ?? [];
+    List<String> presentIds = prefs.getStringList('present_student_ids') ?? [];
+    if (presentIds.isEmpty) {
+      final attendanceList = await DatabaseHelper.instance.fetchAllAttendance();
+      if (attendanceList.isNotEmpty) {
+        final latest = attendanceList.first;
+        final idsStr = (latest['student_ids'] as String?) ?? '';
+        if (idsStr.isNotEmpty) {
+          presentIds = idsStr.split(',').where((e) => e.trim().isNotEmpty).toList();
+        }
+      }
+    }
     final presentCount = presentIds.length;
     final totalStudents = allStudents.length;
     final absentCount = (totalStudents - presentCount).clamp(0, totalStudents);
@@ -175,6 +185,7 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
                         trailing: Text('$durationMinutes min', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB))),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
