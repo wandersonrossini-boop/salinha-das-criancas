@@ -166,6 +166,16 @@ class DatabaseHelper {
     return snapshot.docs.map((doc) => doc.data()).toList();
   }
 
+  Future<bool> hasAttendanceToday() async {
+    final hoje = DateTime.now().toIso8601String().split('T')[0];
+    final snapshot = await FirebaseFirestore.instance
+        .collection('attendance_history')
+        .where('date', isEqualTo: hoje)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
   Future<void> markLessonAsCompleted(
     int? lessonId, {
     String? teacherId,

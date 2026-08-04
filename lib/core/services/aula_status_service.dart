@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../db/database_helper.dart';
 
 /// Estado possível da aula de hoje, usado pelo Hero Card ("Hoje na Aula")
 /// na Home para decidir texto, ícone e ação principal.
@@ -64,9 +65,12 @@ class AulaStatusService {
     final prefs = await SharedPreferences.getInstance();
     final hoje = _hoje();
 
-    // 1. Chamada foi feita hoje? (reaproveita 'attendance_date' já existente)
+    // 1. Chamada foi feita hoje? (reaproveita 'attendance_date' + verifica banco)
     final attendanceDate = prefs.getString(_kAttendanceDateKey) ?? '';
-    final chamadaFeitaHoje = attendanceDate == hoje;
+    var chamadaFeitaHoje = attendanceDate == hoje;
+    if (!chamadaFeitaHoje) {
+      chamadaFeitaHoje = await DatabaseHelper.instance.hasAttendanceToday();
+    }
     if (!chamadaFeitaHoje) {
       return AulaStatusResult(status: AulaStatus.chamadaPendente, totalEtapas: totalEtapas);
     }

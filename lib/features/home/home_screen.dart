@@ -138,15 +138,19 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // --- CONTEÚDO PRINCIPAL DA DASHBOARD (PREMIUM) ---
-class DashboardContent extends StatelessWidget {
+class DashboardContent extends StatefulWidget {
   const DashboardContent({super.key});
 
   @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent> {
+  @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
     if (user == null) {
-      return _buildDashboardBody(context, 'Admin', '');
+      return _buildDashboardBody(context, 'Professor', '');
     }
 
     return StreamBuilder<DocumentSnapshot>(
@@ -660,13 +664,16 @@ class DashboardContent extends StatelessWidget {
         final iconColor = latestPlan != null ? DsColors.primaryBlue : DsColors.textDisabled;
 
         return GestureDetector(
-          onTap: () {
+          onTap: () async {
             if (aulaStatus == AulaStatus.chamadaPendente) {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
             } else if (aulaStatus == AulaStatus.semPlano) {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiPlannerScreen()));
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const AiPlannerScreen()));
             } else {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ClassModeScreen()));
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const ClassModeScreen()));
+            }
+            if (context.mounted) {
+              setState(() {});
             }
           },
           child: Container(
@@ -812,7 +819,12 @@ class DashboardContent extends StatelessWidget {
         final int absent = (students - present).clamp(0, students);
 
         return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())),
+          onTap: () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
+            if (context.mounted) {
+              setState(() {});
+            }
+          },
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -922,6 +934,9 @@ class DashboardContent extends StatelessWidget {
       final todayDate = DateTime.now().toIso8601String().split('T')[0];
       final attendanceDate = prefs.getString('attendance_date') ?? '';
       hasInitiated = attendanceDate == todayDate;
+      if (!hasInitiated) {
+        hasInitiated = await DatabaseHelper.instance.hasAttendanceToday();
+      }
 
       final presentIds = prefs.getStringList('present_student_ids') ?? [];
       final allIds = students.map((e) => e.id.toString()).toSet();
