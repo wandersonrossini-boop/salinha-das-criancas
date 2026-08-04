@@ -6,12 +6,15 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/design_system/colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../../core/services/aula_status_service.dart';
 import '../../ai_planner/models/lesson_plan.dart';
 import '../../games/screens/quiz_screen.dart';
+import '../../games/screens/games_menu_screen.dart';
 import '../../roulette/screens/roulette_screen.dart';
 import '../../students/screens/chamada_screen.dart';
+import '../../students/models/student.dart';
 import '../../teams/screens/teams_screen.dart';
 
 class ClassModeScreen extends StatefulWidget {
@@ -33,6 +36,279 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
   int _expandedIndex = 0;
   final Map<int, GlobalKey> _cardKeys = {};
   final Map<int, ExpansionTileController> _controllers = {};
+
+  List<Student> _groupA = [];
+  List<Student> _groupB = [];
+  bool _hasDividedGroups = false;
+
+  Future<void> _divideIntoGroups() async {
+    final students = await DatabaseHelper.instance.fetchAllStudents();
+    final prefs = await SharedPreferences.getInstance();
+    final presentIds = prefs.getStringList('present_student_ids') ?? [];
+
+    final presentStudents = students.where((s) => presentIds.contains(s.id.toString())).toList();
+    if (presentStudents.isEmpty) {
+      presentStudents.addAll(students);
+    }
+
+    presentStudents.shuffle();
+    final half = (presentStudents.length / 2).ceil();
+
+    setState(() {
+      _groupA = presentStudents.take(half).toList();
+      _groupB = presentStudents.skip(half).toList();
+      _hasDividedGroups = true;
+    });
+  }
+
+  Future<void> _finishLessonAndShowReport() async {
+    try {
+      if (_currentPlan != null) {
+        await DatabaseHelper.instance.markLessonAsCompleted(
+          _currentPlan!.id,
+          themeTitle: _currentPlan!.title,
+        );
+      }
+    } catch (dbError) {
+      debugPrint('Erro ao atualizar banco: $dbError');
+    }
+
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final teacherName = prefs.getString('current_teacher_name') ?? 'Professor';
+    final startedAtStr = prefs.getString('lesson_started_at_${_currentPlan?.id}');
+    final endedAt = DateTime.now();
+    DateTime startedAt = startedAtStr != null ? DateTime.parse(startedAtStr) : endedAt.subtract(const Duration(minutes: 45));
+    int durationMinutes = endedAt.difference(startedAt).inMinutes;
+    if (durationMinutes <= 0) durationMinutes = 45;
+
+    final allStudents = await DatabaseHelper.instance.fetchAllStudents();
+    final presentIds = prefs.getStringList('present_student_ids') ?? [];
+    final presentCount = presentIds.length;
+    final totalStudents = allStudents.length;
+    final absentCount = (totalStudents - presentCount).clamp(0, totalStudents);
+
+    _showSessionReportModal(
+      themeTitle: _currentPlan?.title ?? 'Aula de Hoje',
+      teacherName: teacherName,
+      durationMinutes: durationMinutes,
+      presentCount: presentCount,
+      absentCount: absentCount,
+      totalStudents: totalStudents,
+    );
+  }
+
+  void _showSessionReportModal({
+    required String themeTitle,
+    required String teacherName,
+    required int durationMinutes,
+    required int presentCount,
+    required int absentCount,
+    required int totalStudents,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Row(
+                  children: [
+                    Text('🎉', style: TextStyle(fontSize: 28)),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Relatório da Sessão',
+                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Tema da Aula', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
+                  trailing: Text(themeTitle, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Professor', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
+                  trailing: Text(teacherName, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Duração Real', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
+                  trailing: Text('$durationMinutes min', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB))),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          const Text('PRESENTES', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                          const SizedBox(height: 4),
+                          Text('$presentCount', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          const Text('AUSENTES', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                          const SizedBox(height: 4),
+                          Text('$absentCount', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFEF4444))),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          const Text('TOTAL', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                          const SizedBox(height: 4),
+                          Text('$totalStudents', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/');
+                    }
+                  },
+                  icon: const Icon(Icons.home_rounded),
+                  label: const Text('Voltar ao Início', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DsColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollaborativeGroupsWidget() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.purple.shade100, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.groups_rounded, color: AppColors.roxoAcolhedor, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Grupos de Atividade (Colaborativo)',
+                style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!_hasDividedGroups) ...[
+            const Text(
+              'Divida a turma em 2 grupos para realizar a atividade prática sem foco competitivo.',
+              style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF475569)),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => _divideIntoGroups(),
+              icon: const Icon(Icons.shuffle_rounded, size: 16),
+              label: const Text('Dividir Presentes em 2 Grupos Agora'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.roxoAcolhedor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Grupo A 🔵', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                        const SizedBox(height: 6),
+                        ..._groupA.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF1E293B)))),
+                        if (_groupA.isEmpty) const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Grupo B 🟡', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                        const SizedBox(height: 6),
+                        ..._groupB.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF1E293B)))),
+                        if (_groupB.isEmpty) const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () => _divideIntoGroups(),
+              icon: const Icon(Icons.refresh_rounded, size: 14),
+              label: const Text('Reorganizar Grupos'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.roxoAcolhedor),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   ExpansionTileController _getController(int index) {
     return _controllers.putIfAbsent(index, () => ExpansionTileController());
@@ -899,22 +1175,51 @@ Boa semana a todas as famílias! 🙏
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildDynamicActivityContent(plan.dynamicActivity, etapa['color']),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamsScreen()));
-                },
-                icon: const Icon(Icons.group_add_rounded, size: 16),
-                label: const Text('Dividir em Equipes'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.roxoAcolhedor,
-                  foregroundColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+            const SizedBox(height: 16),
+            _buildCollaborativeGroupsWidget(),
+          ],
+        );
+      case 4: // Oração e Encerramento
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              plan.prayer.isNotEmpty ? plan.prayer : etapa['content'],
+              style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
+              textAlign: TextAlign.left,
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            const Text(
+              'Próximos Passos:',
+              style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesMenuScreen()));
+              },
+              icon: const Icon(Icons.palette_rounded, size: 18),
+              label: const Text('🎨 Atividades e Desenhos de Apoio'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: DsColors.primaryBlue,
+                side: const BorderSide(color: DsColors.primaryBlue, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () => _finishLessonAndShowReport(),
+              icon: const Icon(Icons.flag_rounded, size: 18),
+              label: const Text('🏁 Finalizar Ministração e Ver Relatório'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.verdePasto,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
               ),
             ),
           ],
