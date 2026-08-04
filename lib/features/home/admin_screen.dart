@@ -1094,30 +1094,157 @@ class _AdminScreenState extends State<AdminScreen> {
                             builder: (context) => Dialog(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 450),
+                                constraints: const BoxConstraints(maxWidth: 480),
                                 child: SingleChildScrollView(
                                   padding: const EdgeInsets.all(24),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
-                                      Text(themeTitle, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                      Row(
+                                        children: [
+                                          const Text('📊', style: TextStyle(fontSize: 28)),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Relatório da Sessão',
+                                                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                                ),
+                                                Text(
+                                                  'Data: $date • Juniores (7-9 anos)',
+                                                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 16),
-                                      ListTile(title: const Text('Professor', style: TextStyle(fontFamily: 'Nunito')), trailing: Text(profName, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold))),
-                                      ListTile(title: const Text('Turma', style: TextStyle(fontFamily: 'Nunito')), trailing: const Text('Juniores', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold))),
-                                      ListTile(title: const Text('Data', style: TextStyle(fontFamily: 'Nunito')), trailing: Text(date, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold))),
-                                      ListTile(title: const Text('Duração', style: TextStyle(fontFamily: 'Nunito')), trailing: Text(timeDuration, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold))),
-                                      ListTile(title: const Text('Pontos', style: TextStyle(fontFamily: 'Nunito')), trailing: Text('🎯 $pointsEarned pts', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold))),
-                                      const Divider(height: 20),
-                                      const Text('Atividades Realizadas:', style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 6),
-                                      const Text('✓ Quiz de Aplicação\n✓ Labirinto Bíblico Impresso\n✓ Oração de Encerramento', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, height: 1.4, color: Color(0xFF475569))),
+                                      const Divider(),
+                                      const SizedBox(height: 12),
+                                      ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        title: const Text('Tema da Aula', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                                        trailing: Text(themeTitle, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                                      ),
+                                      ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        title: const Text('Professor Responsável', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                                        trailing: Text(profName, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Duração Real', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                                              trailing: Text(timeDuration, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB))),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: ListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              title: const Text('Pontuação Total', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                                              trailing: Text('🎯 $pointsEarned pts', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFD97706))),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                          children: [
+                                            Column(
+                                              children: [
+                                                const Text('PRESENTES', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                                                const SizedBox(height: 4),
+                                                Text('${presentIds.length}', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                                              ],
+                                            ),
+                                            Column(
+                                              children: [
+                                                const Text('AUSENTES', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                                                const SizedBox(height: 4),
+                                                Text('$absentCount', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFEF4444))),
+                                              ],
+                                            ),
+                                            Column(
+                                              children: [
+                                                const Text('TOTAL TURMA', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                                                const SizedBox(height: 4),
+                                                Text('${presentIds.length + absentCount}', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Atividades Realizadas na Ministração',
+                                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50.withOpacity(0.5),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: Colors.green.shade200),
+                                        ),
+                                        child: const Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Recepção e Chamada da Turma', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                              ],
+                                            ),
+                                            SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                                SizedBox(width: 8),
+                                                Text('História Bíblica e Aplicação', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                              ],
+                                            ),
+                                            SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Quiz de Fixação e Dinâmica', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                              ],
+                                            ),
+                                            SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Oração de Encerramento e Apelo', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                       const SizedBox(height: 24),
                                       ElevatedButton(
                                         onPressed: () => Navigator.pop(context),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: DsColors.primaryBlue,
                                           foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                          elevation: 0,
                                         ),
                                         child: const Text('Fechar Relatório', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
                                       )
