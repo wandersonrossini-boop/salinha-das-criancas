@@ -113,28 +113,42 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
     required int presentCount,
     required int absentCount,
     required int totalStudents,
+    int totalPoints = 40,
   }) {
+    final now = DateTime.now();
+    final dateStr = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
+    final ageGroup = _currentPlan?.ageGroup.isNotEmpty == true ? _currentPlan!.ageGroup : 'Juniores (7-9 anos)';
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 450),
-          child: Padding(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text('🎉', style: TextStyle(fontSize: 28)),
-                    SizedBox(width: 10),
+                    const Text('📊', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Relatório da Sessão',
-                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Relatório da Sessão',
+                            style: TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            'Data: $dateStr • $ageGroup',
+                            style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -144,18 +158,31 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Tema da Aula', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
+                  title: const Text('Tema da Aula', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
                   trailing: Text(themeTitle, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Professor', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
+                  title: const Text('Professor Responsável', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
                   trailing: Text(teacherName, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Duração Real', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B))),
-                  trailing: Text('$durationMinutes min', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB))),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Duração Real', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                        trailing: Text('$durationMinutes min', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2563EB))),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Pontuação Total', style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B), fontSize: 13)),
+                        trailing: Text('🎯 $totalPoints pts', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFFD97706))),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Container(
@@ -184,9 +211,58 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
                       ),
                       Column(
                         children: [
-                          const Text('TOTAL', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
+                          const Text('TOTAL TURMA', style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, color: Color(0xFF64748B))),
                           const SizedBox(height: 4),
                           Text('$totalStudents', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Atividades Realizadas na Ministração',
+                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: const Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Text('Recepção e Chamada da Turma', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Text('História Bíblica e Aplicação', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Text('Quiz de Fixação e Dinâmica', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+                          SizedBox(width: 8),
+                          Text('Oração de Encerramento e Apelo', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                         ],
                       ),
                     ],

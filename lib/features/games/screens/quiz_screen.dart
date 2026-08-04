@@ -200,7 +200,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
             setState(() {
               _activeLessonQuestions = parsed;
-              _totalQuestions = parsed.isEmpty ? 0 : (parsed.length < 5 ? parsed.length : 5);
+              _totalQuestions = parsed.isEmpty ? 0 : (parsed.length < 10 ? parsed.length : 10);
             });
           }
         } catch (e) {
@@ -217,15 +217,11 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _loadTeams() async {
-    final teams = await DatabaseHelper.instance.fetchAllTeams();
     setState(() {
-      _teams = teams;
-      if (_teams.isEmpty) {
-        _teams = [
-          Team(id: 1, name: 'Top da Salinha 🔵', color: 0xFF2196F3, points: 0),
-          Team(id: 2, name: 'Ovelhinhas do Pasto 🟠', color: 0xFFFF5722, points: 0),
-        ];
-      }
+      _teams = [
+        Team(id: 1, name: 'Grupo A 🔵', color: 0xFF2196F3, points: 0),
+        Team(id: 2, name: 'Grupo B 🟡', color: 0xFFFFB300, points: 0),
+      ];
       _activeTeam = _teams.first;
       
       _sessionScores.clear();
@@ -337,8 +333,7 @@ class _QuizScreenState extends State<QuizScreen> {
       _streak++;
       _totalCorrectAnswers++;
       
-      int pointsEarned = 100 + (_timeLeft > 0 ? (_timeLeft * 1.5).round() : 0);
-      pointsEarned = pointsEarned > 150 ? 150 : pointsEarned;
+      int pointsEarned = 10;
       
       final currentScore = _sessionScores[_activeTeam!.id!] ?? 0;
       _sessionScores[_activeTeam!.id!] = currentScore + pointsEarned;
@@ -359,10 +354,14 @@ class _QuizScreenState extends State<QuizScreen> {
 
   void _avancarQuiz() {
     if (_currentQuestionIndex < _totalQuestions - 1) {
+      int currentIndex = _teams.indexWhere((t) => t.id == _activeTeam!.id);
+      int nextIndex = (currentIndex + 1) % _teams.length;
+
       setState(() {
         _currentQuestionIndex++;
         _answered = false;
         _selectedOption = null;
+        _activeTeam = _teams[nextIndex];
       });
       _startTimer();
     } else {
