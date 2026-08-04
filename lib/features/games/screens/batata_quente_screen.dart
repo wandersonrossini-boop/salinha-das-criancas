@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/design_system/colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../../core/services/audio_service.dart';
-import '../../students/models/student.dart';
 
 class BatataQuenteScreen extends StatefulWidget {
   const BatataQuenteScreen({super.key});
@@ -16,11 +14,14 @@ class BatataQuenteScreen extends StatefulWidget {
 
 class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
   Timer? _timer;
   bool _isPlaying = false;
+  bool _isBurnt = false;
   int _secondsLeft = 0;
   String _lessonTheme = 'Aula de Hoje';
-  List<String> _quizQuestions = [];
   final Random _random = Random();
 
   @override
@@ -28,10 +29,17 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-      lowerBound: 0.9,
-      upperBound: 1.15,
+      duration: const Duration(milliseconds: 700),
     );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.07).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _glowAnimation = Tween<double>(begin: 10.0, end: 28.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _loadLessonData();
   }
 
@@ -54,21 +62,35 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
 
   void _startBatata() {
     _timer?.cancel();
-    // Tempo maluco cego entre 12 e 35 segundos
     _secondsLeft = 12 + _random.nextInt(24);
+
+    _pulseController.duration = const Duration(milliseconds: 700);
     _pulseController.repeat(reverse: true);
     AudioService.instance.playTick();
 
     setState(() {
       _isPlaying = true;
+      _isBurnt = false;
     });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsLeft > 1) {
         _secondsLeft--;
+
+        // Aceleração progressiva nos segundos finais
+        if (_secondsLeft <= 2) {
+          if (_pulseController.duration != const Duration(milliseconds: 280)) {
+            _pulseController.duration = const Duration(milliseconds: 280);
+            _pulseController.repeat(reverse: true);
+          }
+        } else if (_secondsLeft <= 5) {
+          if (_pulseController.duration != const Duration(milliseconds: 450)) {
+            _pulseController.duration = const Duration(milliseconds: 450);
+            _pulseController.repeat(reverse: true);
+          }
+        }
       } else {
         _timer?.cancel();
-        _pulseController.stop();
         _burnBatata();
       }
     });
@@ -78,8 +100,12 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
     AudioService.instance.stopTick();
     AudioService.instance.playExplosionOrWhistle();
 
+    _pulseController.stop();
+    _pulseController.value = 0;
+
     setState(() {
       _isPlaying = false;
+      _isBurnt = true;
     });
 
     _showConsequenceModal();
@@ -177,6 +203,55 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
     );
   }
 
+  Widget _buildPotatoWidget() {
+    String imagePath;
+    if (_isBurnt) {
+      imagePath = 'assets/images/games/hot_potato/batata-queimada.png';
+    } else if (_isPlaying) {
+      imagePath = 'assets/images/games/hot_potato/batata-pulsando.png';
+    } else {
+      imagePath = 'assets/images/games/hot_potato/batata-parada.png';
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeInOut,
+      switchOutCurve: Curves.easeInOut,
+      child: AnimatedBuilder(
+        key: ValueKey<String>(imagePath),
+        animation: _pulseController,
+        builder: (context, child) {
+          final scale = _isPlaying ? _scaleAnimation.value : 1.0;
+          final glowRadius = _isPlaying ? _glowAnimation.value : 0.0;
+
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: _isPlaying
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFFF8C00).withOpacity(0.45),
+                          blurRadius: glowRadius,
+                          spreadRadius: glowRadius * 0.4,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -218,34 +293,15 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
                   ],
                 ),
               ),
-              ScaleTransition(
-                scale: _pulseController,
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: _isPlaying ? Colors.red.shade100 : Colors.amber.shade50,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isPlaying ? Colors.red.withOpacity(0.3) : Colors.amber.withOpacity(0.2),
-                        blurRadius: 30,
-                        spreadRadius: 10,
-                      )
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      _isPlaying ? '🥔🔥' : '🥔',
-                      style: const TextStyle(fontSize: 90),
-                    ),
-                  ),
-                ),
-              ),
+              _buildPotatoWidget(),
               Column(
                 children: [
                   Text(
-                    _isPlaying ? 'Passe a batata rápido antes que ela queime!' : 'Toque no botão para iniciar o Tempo Maluco!',
+                    _isPlaying
+                        ? 'Passe a batata rápido antes que ela queime!'
+                        : (_isBurnt
+                            ? '💥 A batata queimou! Toque para nova rodada.'
+                            : 'Toque no botão para iniciar o Tempo Maluco!'),
                     style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                     textAlign: TextAlign.center,
                   ),
@@ -254,7 +310,9 @@ class _BatataQuenteScreenState extends State<BatataQuenteScreen> with SingleTick
                     onPressed: _isPlaying ? null : _startBatata,
                     icon: Icon(_isPlaying ? Icons.hourglass_top_rounded : Icons.local_fire_department_rounded),
                     label: Text(
-                      _isPlaying ? 'A BATATA ESTÁ PASSANDO! 💥' : '🔥 Iniciar Batata Quente',
+                      _isPlaying
+                          ? 'A BATATA ESTÁ PASSANDO! 💥'
+                          : (_isBurnt ? '🔥 Reiniciar Batata Quente' : '🔥 Iniciar Batata Quente'),
                       style: const TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
