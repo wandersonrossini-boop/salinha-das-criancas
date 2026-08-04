@@ -80,19 +80,24 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   void _showStudentFormModal([Student? student]) {
+    const turmasOficiais = ['Berçário', 'Jardim', 'Primários', 'Juniores'];
+    const avatarOptions = [
+      '🧒', '👧', '👦', '🦁', '🐑', '🌟', '✝️', '📖', '🕊️', '💛',
+    ];
+
     final nameController = TextEditingController(text: student?.name ?? '');
     final ageController = TextEditingController(text: student?.age.toString() ?? '');
     final birthDateController = TextEditingController(text: student?.birthDate ?? '');
-    final classController = TextEditingController(text: student?.turma ?? '');
-    final photoController = TextEditingController(text: student?.photoUrl ?? '');
     final alertController = TextEditingController(text: student?.alertMessage ?? '');
+
+    String? selectedTurma = turmasOficiais.contains(student?.turma) ? student!.turma : null;
+    String selectedAvatar = student?.avatarPath ?? '🧒';
 
     bool hasChanges = false;
     final initialName = student?.name ?? '';
     final initialAge = student?.age.toString() ?? '';
     final initialBirthDate = student?.birthDate ?? '';
     final initialClass = student?.turma ?? '';
-    final initialPhoto = student?.photoUrl ?? '';
     final initialAlert = student?.alertMessage ?? '';
 
     showDialog(
@@ -104,15 +109,13 @@ class _AdminScreenState extends State<AdminScreen> {
               final currentName = nameController.text.trim();
               final currentAge = ageController.text.trim();
               final currentBirthDate = birthDateController.text.trim();
-              final currentClass = classController.text.trim();
-              final currentPhoto = photoController.text.trim();
               final currentAlert = alertController.text.trim();
 
               final changed = currentName != initialName ||
                   currentAge != initialAge ||
                   currentBirthDate != initialBirthDate ||
-                  currentClass != initialClass ||
-                  currentPhoto != initialPhoto ||
+                  selectedTurma != initialClass ||
+                  selectedAvatar != (student?.avatarPath ?? '🧒') ||
                   currentAlert != initialAlert;
 
               if (changed != hasChanges) {
@@ -125,15 +128,11 @@ class _AdminScreenState extends State<AdminScreen> {
             nameController.removeListener(checkChanges);
             ageController.removeListener(checkChanges);
             birthDateController.removeListener(checkChanges);
-            classController.removeListener(checkChanges);
-            photoController.removeListener(checkChanges);
             alertController.removeListener(checkChanges);
 
             nameController.addListener(checkChanges);
             ageController.addListener(checkChanges);
             birthDateController.addListener(checkChanges);
-            classController.addListener(checkChanges);
-            photoController.addListener(checkChanges);
             alertController.addListener(checkChanges);
 
             return Dialog(
@@ -273,13 +272,12 @@ class _AdminScreenState extends State<AdminScreen> {
                               ],
                             ),
                             const SizedBox(height: 14),
-                            TextField(
-                              controller: classController,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                            // DROPDOWN OBRIGATÓRIO DE TURMA
+                            DropdownButtonFormField<String>(
+                              value: selectedTurma,
                               decoration: InputDecoration(
-                                labelText: 'Turma',
+                                labelText: 'Turma *',
                                 labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                hintText: 'Ex: Juniores, Primários',
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -287,24 +285,59 @@ class _AdminScreenState extends State<AdminScreen> {
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
                               ),
+                              hint: const Text('Selecione a turma', style: TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Color(0xFF94A3B8))),
+                              items: turmasOficiais.map((turma) => DropdownMenuItem(
+                                value: turma,
+                                child: Text(turma, style: const TextStyle(fontFamily: 'Nunito', fontSize: 14)),
+                              )).toList(),
+                              onChanged: (val) {
+                                setModalState(() => selectedTurma = val);
+                                checkChanges();
+                              },
+                              validator: (val) => val == null ? 'Selecione a turma' : null,
                             ),
                             const SizedBox(height: 14),
-                            TextField(
-                              controller: photoController,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'Foto do Aluno',
-                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                hintText: 'Link público da imagem',
-                                helperText: 'Cole o link público da imagem ou selecione uma foto.',
-                                helperStyle: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF64748B)),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
-                              ),
+                            // SELETOR DE AVATAR INFANTIL (CARROSSEL)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Avatar do Aluno', style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, color: Color(0xFF475569))),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 60,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: avatarOptions.length,
+                                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                                    itemBuilder: (ctx, idx) {
+                                      final av = avatarOptions[idx];
+                                      final isSelected = selectedAvatar == av;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setModalState(() => selectedAvatar = av);
+                                          checkChanges();
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            color: isSelected ? DsColors.primaryBlue.withOpacity(0.12) : Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: isSelected ? DsColors.primaryBlue : Colors.grey.shade300,
+                                              width: isSelected ? 2.5 : 1,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Text(av, style: const TextStyle(fontSize: 26)),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 14),
                             TextField(
@@ -350,8 +383,6 @@ class _AdminScreenState extends State<AdminScreen> {
                               final name = nameController.text.trim();
                               final rawAge = int.tryParse(ageController.text.trim()) ?? 0;
                               final birthDate = birthDateController.text.trim();
-                              final classRoom = classController.text.trim();
-                              final rawPhoto = photoController.text.trim();
                               final alert = alertController.text.trim();
 
                               if (name.isEmpty) {
@@ -361,17 +392,22 @@ class _AdminScreenState extends State<AdminScreen> {
                                 return;
                               }
 
-                              final photoUrl = _cleanDriveUrl(rawPhoto);
+                              if (selectedTurma == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Por favor, selecione a Turma.')),
+                                );
+                                return;
+                              }
 
                               final newStudent = Student(
                                 id: student?.id,
                                 name: name,
                                 age: rawAge,
-                                turma: classRoom.isEmpty ? null : classRoom,
-                                photoUrl: photoUrl.isEmpty ? null : photoUrl,
+                                turma: selectedTurma,
+                                photoUrl: student?.photoUrl,
                                 alertMessage: alert.isEmpty ? null : alert,
                                 points: student?.points ?? 0,
-                                avatarPath: student?.avatarPath ?? 'assets/images/mascot/poses/idle.png',
+                                avatarPath: selectedAvatar,
                                 teamId: student?.teamId,
                                 birthDate: birthDate.isEmpty ? null : birthDate,
                               );
