@@ -281,27 +281,30 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          'Davi e Golias',
-                          'Arca de Noé',
-                          'Parábola do Semeador',
-                          'Armadura de Deus',
-                          'Nascimento de Jesus',
+                          {'label': 'Davi e Golias', 'icon': '🎯'},
+                          {'label': 'Arca de Noé', 'icon': '⛵'},
+                          {'label': 'Parábola do Semeador', 'icon': '🌱'},
+                          {'label': 'Armadura de Deus', 'icon': '🛡️'},
+                          {'label': 'Nascimento de Jesus', 'icon': '⭐'},
                         ].map((suggested) => Padding(
-                          padding: const EdgeInsets.only(right: 6.0),
+                          padding: const EdgeInsets.only(right: 8.0),
                           child: ActionChip(
-                            label: Text(suggested, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5)),
+                            avatar: Text(suggested['icon']!, style: const TextStyle(fontSize: 14)),
+                            label: Text(suggested['label']!, style: TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade900)),
                             backgroundColor: Colors.blue.shade50,
-                            side: BorderSide(color: Colors.blue.shade200),
+                            side: BorderSide(color: Colors.blue.shade200, width: 1.2),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                             onPressed: () {
+                              final textToSet = suggested['label']!;
                               setState(() {
-                                _temaController.text = suggested;
+                                _temaController.text = textToSet;
                                 _temaController.selection = TextSelection.fromPosition(
-                                  TextPosition(offset: suggested.length),
+                                  TextPosition(offset: textToSet.length),
                                 );
                               });
                             },
@@ -309,7 +312,7 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                         )).toList(),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
