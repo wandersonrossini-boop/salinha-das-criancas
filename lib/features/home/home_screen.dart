@@ -146,7 +146,34 @@ class DashboardContent extends StatefulWidget {
 }
 
 class _DashboardContentState extends State<DashboardContent> {
+  final PageController _carouselController = PageController();
+  int _carouselIndex = 0;
+
   @override
+  void initState() {
+    super.initState();
+    _startCarouselTimer();
+  }
+
+  void _startCarouselTimer() {
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      final next = (_carouselIndex + 1) % 3;
+      _carouselController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _carouselIndex = next);
+      _startCarouselTimer();
+    });
+  }
+
+  @override
+  void dispose() {
+    _carouselController.dispose();
+    super.dispose();
+  }
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -951,7 +978,7 @@ class _DashboardContentState extends State<DashboardContent> {
     };
   }
 
-  // --- CARD CONTEXTUAL (Experimento 3) ---
+  // --- CARD CARROSSEL ROTATIVO (3 SLIDES) ---
   Widget _buildContextualCard(BuildContext context) {
     return FutureBuilder<LessonPlan?>(
       future: DatabaseHelper.instance.fetchLessonOfTheWeek(),
@@ -961,88 +988,128 @@ class _DashboardContentState extends State<DashboardContent> {
           future: AulaStatusService.getStatus(lessonId: plan?.id),
           builder: (context, snapshot) {
             final status = snapshot.data?.status ?? AulaStatus.semPlano;
+            final isConcluida = status == AulaStatus.aulaConcluida;
 
-            IconData icon;
-            Color accentColor;
-            String title;
-            String description;
-
-            switch (status) {
-              case AulaStatus.semPlano:
-              case AulaStatus.chamadaPendente:
-                icon = Icons.volunteer_activism_rounded;
-                accentColor = const Color(0xFFD97706);
-                title = 'Preparação';
-                description = 'Revise o plano de aula e faça a recepção acolhedora dos alunos!';
-                break;
-
-              case AulaStatus.aulaNaoIniciada:
-              case AulaStatus.aulaEmAndamento:
-                icon = Icons.bolt_rounded;
-                accentColor = const Color(0xFF2563EB);
-                title = 'Apoio da Etapa';
-                description = 'Mantenha o foco na etapa atual e acompanhe a participação da turma.';
-                break;
-
-              case AulaStatus.aulaConcluida:
-                icon = Icons.stars_rounded;
-                accentColor = const Color(0xFF16A34A);
-                title = 'Missão Cumprida!';
-                description = 'Parabéns pelo ministério hoje! Relatório e presença salvos com sucesso.';
-                break;
-            }
-
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFE3CE).withOpacity(0.95),
-                borderRadius: DsRadius.large,
-                border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-                boxShadow: _floatingShadow(),
+            final slides = [
+              // Slide 1: Status da Aula
+              _buildCarouselSlide(
+                icon: isConcluida ? Icons.stars_rounded : Icons.bolt_rounded,
+                color: isConcluida ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                bgColor: isConcluida ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
+                title: isConcluida ? 'Missão Cumprida!' : 'Apoio da Etapa',
+                description: isConcluida
+                    ? 'Relatório e presença salvos com sucesso. Parabéns!'
+                    : 'Mantenha o foco na etapa atual e acompanhe a participação.',
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
+              // Slide 2: Mural de Recados
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('mural').orderBy('criadoEm', descending: true).limit(1).snapshots(),
+                builder: (ctx, muralSnap) {
+                  final murals = muralSnap.data?.docs ?? [];
+                  final mensagem = murals.isNotEmpty
+                      ? (murals.first.data() as Map<String, dynamic>)['mensagem'] as String? ?? 'Fique atento aos avisos da semana!'
+                      : 'Fique atento aos avisos da semana!';
+                  return _buildCarouselSlide(
+                    icon: Icons.campaign_rounded,
+                    color: const Color(0xFF7C3AED),
+                    bgColor: const Color(0xFFF3E8FF),
+                    title: 'Mural da Salinha',
+                    description: mensagem,
+                  );
+                },
+              ),
+              // Slide 3: Líderes do Mês
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('equipes').orderBy('pontuacao', descending: true).limit(1).snapshots(),
+                builder: (ctx, teamSnap) {
+                  final teams = teamSnap.data?.docs ?? [];
+                  final teamData = teams.isNotEmpty ? (teams.first.data() as Map<String, dynamic>) : null;
+                  final teamName = teamData?['nome'] as String? ?? 'Equipe Campeã';
+                  final teamScore = teamData?['pontuacao']?.toString() ?? '--';
+                  return _buildCarouselSlide(
+                    icon: Icons.emoji_events_rounded,
+                    color: const Color(0xFFD97706),
+                    bgColor: const Color(0xFFFEF3C7),
+                    title: 'Líder do Mês',
+                    description: '$teamName · $teamScore pts',
+                  );
+                },
+              ),
+            ];
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 130,
+                  child: PageView(
+                    controller: _carouselController,
+                    onPageChanged: (i) => setState(() => _carouselIndex = i),
+                    children: slides,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(3, (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: _carouselIndex == i ? 14 : 6,
+                    height: 6,
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.12),
-                      shape: BoxShape.circle,
+                      color: _carouselIndex == i ? DsColors.primaryBlue : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Icon(icon, color: accentColor, size: 22),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Fredoka',
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 10.5,
-                      color: Color(0xFF475569),
-                      height: 1.3,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+                  )),
+                ),
+              ],
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildCarouselSlide({
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgColor.withOpacity(0.95),
+        borderRadius: DsRadius.large,
+        border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+        boxShadow: _floatingShadow(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontFamily: 'Fredoka', fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontFamily: 'Nunito', fontSize: 10.5, color: Color(0xFF475569), height: 1.3, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 

@@ -439,7 +439,69 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   
                             const SizedBox(height: DsSpacing.s16),
-                            
+
+                            // Botão Esqueci minha senha (apenas no modo Login)
+                            if (!_isRegistering)
+                              TextButton(
+                                onPressed: () {
+                                  final forgotEmailController = TextEditingController(
+                                    text: _selectedTeacher != null && _selectedTeacher!['id'] != 'admin'
+                                        ? (_selectedTeacher!['email'] as String? ?? '')
+                                        : '',
+                                  );
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: const Text('Redefinir Senha', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 20)),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text('Informe o e-mail cadastrado e enviaremos um link de redefinição de senha.', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B))),
+                                          const SizedBox(height: 16),
+                                          TextField(
+                                            controller: forgotEmailController,
+                                            keyboardType: TextInputType.emailAddress,
+                                            decoration: InputDecoration(
+                                              labelText: 'E-mail',
+                                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF4EA4FF)),
+                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Color(0xFF64748B)))),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4EA4FF), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                                          onPressed: () async {
+                                            final email = forgotEmailController.text.trim();
+                                            if (email.isEmpty) return;
+                                            try {
+                                              await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                                              if (ctx.mounted) {
+                                                Navigator.pop(ctx);
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('✓ E-mail de redefinição enviado! Verifique sua caixa de entrada.'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (ctx.mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: const Text('Enviar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: const Text('Esqueci minha senha', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF94A3B8), decoration: TextDecoration.underline)),
+                              ),
+
                             TextButton(
                               onPressed: () => setState(() => _isRegistering = !_isRegistering),
                               child: Text(

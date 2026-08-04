@@ -478,13 +478,13 @@ class _AdminScreenState extends State<AdminScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           titleSpacing: 16,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               Text(
-                'Painel Administrativo 🇨🇭',
-                overflow: TextOverflow.ellipsis,
+                'Painel Administrativo',
                 style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
               ),
               Text(
@@ -583,28 +583,21 @@ class _AdminScreenState extends State<AdminScreen> {
                           }
                         }
 
-                        Widget buildMetric(String value, String label, IconData icon, Color color) {
+                        Widget buildMetric(String value, String label) {
                           return Expanded(
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.08),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(icon, size: 18, color: color),
-                                ),
-                                const SizedBox(height: 6),
                                 Text(
                                   value,
                                   style: const TextStyle(
                                     fontFamily: 'Fredoka',
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: 22,
                                     color: Color(0xFF0F172A),
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
                                   label,
                                   textAlign: TextAlign.center,
@@ -623,10 +616,10 @@ class _AdminScreenState extends State<AdminScreen> {
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            buildMetric(teachersCount.toString(), 'Professores', Icons.co_present_rounded, AppColors.azulCeleste),
-                            buildMetric(studentsCount.toString(), 'Alunos', Icons.child_care_rounded, AppColors.amareloSol),
-                            buildMetric(classesCount.toString(), 'Aulas', Icons.auto_stories_rounded, AppColors.laranjaCriativo),
-                            buildMetric(totalAttendanceCount.toString(), 'Presenças', Icons.verified_user_rounded, AppColors.verdePasto),
+                            buildMetric(teachersCount.toString(), 'Professores'),
+                            buildMetric(studentsCount.toString(), 'Alunos'),
+                            buildMetric(classesCount.toString(), 'Aulas'),
+                            buildMetric(totalAttendanceCount.toString(), 'Presenças'),
                           ],
                         );
                       }
@@ -908,19 +901,53 @@ class _AdminScreenState extends State<AdminScreen> {
                       },
                     ),
                   ),
-                  Switch.adaptive(
-                    value: isAtivo,
-                    activeColor: AppColors.verdePasto,
-                    onChanged: (val) {
-                      FirebaseFirestore.instance.collection('usuarios').doc(docId).update({'ativo': val});
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(val ? '🔑 Professor ativado.' : '🔒 Professor desativado.'),
-                          duration: const Duration(seconds: 2),
-                          behavior: SnackBarBehavior.floating,
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Switch.adaptive(
+                        value: isAtivo,
+                        activeColor: AppColors.verdePasto,
+                        onChanged: (val) {
+                          FirebaseFirestore.instance.collection('usuarios').doc(docId).update({'ativo': val});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(val ? '🔑 Professor ativado.' : '🔒 Professor desativado.'),
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                      // Botão redefinir senha
+                      if ((data['email'] as String?)?.isNotEmpty == true)
+                        GestureDetector(
+                          onTap: () async {
+                            final email = data['email'] as String;
+                            try {
+                              await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('✓ E-mail de redefinição enviado!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+                                );
+                              }
+                            }
+                          },
+                          child: Tooltip(
+                            message: 'Redefinir senha',
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.lock_reset_rounded, size: 16, color: Color(0xFFD97706)),
+                            ),
+                          ),
                         ),
-                      );
-                    },
+                    ],
                   ),
                 ],
               ),
