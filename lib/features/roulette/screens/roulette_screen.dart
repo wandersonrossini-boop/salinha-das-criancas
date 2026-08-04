@@ -304,88 +304,125 @@ class _RouletteScreenState extends State<RouletteScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.casino_outlined, size: 64, color: AppColors.azulCeleste),
+                                const Icon(Icons.stars_rounded, size: 64, color: AppColors.amareloSol),
                                 const SizedBox(height: 16),
-                                Text(
-                                  _currentMode == 'Alunos' 
-                                      ? 'Nenhum aluno encontrado ou presente!' 
-                                      : 'Nenhuma equipe cadastrada!',
-                                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold),
+                                const Text(
+                                  'Sorteio Concluído!',
+                                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                                   textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _currentMode == 'Alunos' 
-                                      ? 'Faça a chamada ou marque "Todos os alunos" para liberar a roleta.' 
-                                      : 'Crie equipes para habilitar o sorteio.',
-                                  style: const TextStyle(fontFamily: 'Nunito', color: Colors.grey),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Todos os alunos já foram sorteados nesta rodada.',
+                                  style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF64748B)),
                                   textAlign: TextAlign.center,
                                 ),
-                                if (_currentMode == 'Alunos') ...[
-                                  const SizedBox(height: 20),
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())).then((_) => _loadData());
-                                    },
-                                    icon: const Icon(Icons.how_to_reg_rounded),
-                                    label: const Text('Fazer Chamada Agora', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.azulCeleste,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    setState(() => _removedFromRound.clear());
+                                    _loadData();
+                                  },
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('🔄 Reiniciar Rodada', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.azulCeleste,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
-                                ],
+                                ),
                               ],
                             ),
                           ),
                         )
-                      : Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: FortuneWheel(
-                            selected: _selected.stream,
-                            animateFirst: false,
-                            indicators: [
-                              FortuneIndicator(
-                                alignment: Alignment.topCenter,
-                                child: Stack(
-                                  alignment: Alignment.center,
+                      : _items.length == 1
+                          ? Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(24),
+                                margin: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.amber.shade300, width: 2),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Transform.translate(
-                                      offset: const Offset(0, 3),
-                                      child: const TriangleIndicator(
-                                        color: Colors.black26,
-                                      ),
+                                    const Text('👑', style: TextStyle(fontSize: 48)),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Último Aluno na Roleta!',
+                                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
                                     ),
-                                    const TriangleIndicator(
-                                      color: Color(0xFFEF4444),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _items.first is String ? _items.first : (_items.first as Student).name,
+                                      style: const TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        setState(() => _removedFromRound.clear());
+                                        _loadData();
+                                      },
+                                      icon: const Icon(Icons.refresh_rounded),
+                                      label: const Text('🔄 Reiniciar Rodada', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.azulCeleste,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                            items: [
-                              for (var item in _items)
-                                FortuneItem(
-                                  child: RotatedBox(
-                                    quarterTurns: 0,
-                                    child: Text(
-                                      item is String ? item : item.name.split(' ').first,
-                                      style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(32.0),
+                              child: FortuneWheel(
+                                selected: _selected.stream,
+                                animateFirst: false,
+                                indicators: [
+                                  FortuneIndicator(
+                                    alignment: Alignment.topCenter,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Transform.translate(
+                                          offset: const Offset(0, 3),
+                                          child: const TriangleIndicator(
+                                            color: Colors.black26,
+                                          ),
+                                        ),
+                                        const TriangleIndicator(
+                                          color: Color(0xFFEF4444),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  style: FortuneItemStyle(
-                                    color: _getColorForItem(item is String ? item : item.name),
-                                    borderColor: Colors.white,
-                                    borderWidth: 2,
-                                  ),
-                                ),
-                            ],
-                            onAnimationEnd: () {
-                              _showWinnerPopup();
-                            },
-                          ),
-                        ),
+                                ],
+                                items: [
+                                  for (var item in _items)
+                                    FortuneItem(
+                                      child: RotatedBox(
+                                        quarterTurns: 0,
+                                        child: Text(
+                                          item is String ? item : item.name.split(' ').first,
+                                          style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                        ),
+                                      ),
+                                      style: FortuneItemStyle(
+                                        color: _getColorForItem(item is String ? item : item.name),
+                                        borderColor: Colors.white,
+                                        borderWidth: 2,
+                                      ),
+                                    ),
+                                ],
+                                onAnimationEnd: () {
+                                  _showWinnerPopup();
+                                },
+                              ),
+                            ),
                 ),
                 if (_history.isNotEmpty) ...[
                   Padding(
@@ -410,7 +447,12 @@ class _RouletteScreenState extends State<RouletteScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24.0, 12, 24, 24),
                   child: ElevatedButton(
-                    onPressed: _items.isEmpty ? null : _spin,
+                    onPressed: _items.length <= 1
+                        ? () {
+                            setState(() => _removedFromRound.clear());
+                            _loadData();
+                          }
+                        : _spin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.azulCeleste,
                       foregroundColor: Colors.white,
@@ -418,7 +460,10 @@ class _RouletteScreenState extends State<RouletteScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
-                    child: const Text('GIRAR A ROLETA', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      _items.length <= 1 ? '🔄 REINICIAR RODADA' : 'GIRAR A ROLETA',
+                      style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],

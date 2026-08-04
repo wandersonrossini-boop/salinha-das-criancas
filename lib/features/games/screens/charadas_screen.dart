@@ -14,10 +14,10 @@ class CharadasScreen extends StatefulWidget {
 }
 
 class _CharadasScreenState extends State<CharadasScreen> {
-  bool _gameStarted = false;
+  bool _gameStarted = true;
   String _activeLessonTitle = 'Carregando...';
   String _ageGroup = '6-8 anos';
-  int _totalRounds = 5;
+  int _totalRounds = 10;
   String _gameType = 'Dicas';
   String _timerConfig = '30s';
 

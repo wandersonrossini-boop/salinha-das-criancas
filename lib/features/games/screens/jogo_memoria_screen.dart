@@ -112,17 +112,11 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
   }
 
   Future<void> _loadTeams() async {
-    final teams = await DatabaseHelper.instance.fetchAllTeams();
     setState(() {
-      _teams = teams;
-      if (_teams.isEmpty) {
-        _teams = [
-          Team(id: 0, name: 'Equipe Azul 🔵', color: 0xFF2196F3, points: 0),
-          Team(id: 0, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0),
-        ];
-      } else if (_teams.length == 1) {
-        _teams.add(Team(id: 0, name: 'Equipe Laranja 🟠', color: 0xFFFF5722, points: 0));
-      }
+      _teams = [
+        Team(id: 1, name: 'Grupo A 🔵', color: 0xFF2196F3, points: 0),
+        Team(id: 2, name: 'Grupo B 🟡', color: 0xFFFFB300, points: 0),
+      ];
       _activeTeam1 = _teams[0];
       _activeTeam2 = _teams[1];
     });

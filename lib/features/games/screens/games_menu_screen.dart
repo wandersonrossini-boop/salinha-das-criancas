@@ -6,6 +6,8 @@ import 'jogo_memoria_screen.dart';
 import 'jogo_sete_erros_screen.dart';
 import '../../roulette/screens/roulette_screen.dart';
 
+import 'batata_quente_screen.dart';
+
 class GamesMenuScreen extends StatelessWidget {
   const GamesMenuScreen({super.key});
 
@@ -112,7 +114,7 @@ class GamesMenuScreen extends StatelessWidget {
                             borderColor: const Color(0xFFFFD4D4),
                             badgeBgColor: const Color(0xFFFFE2E5),
                             badgeTextColor: const Color(0xFFC53030),
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CronometroScreen())),
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BatataQuenteScreen())),
                           ),
                         ),
                       ],
@@ -194,6 +196,7 @@ class GamesMenuScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 24),
           Expanded(
             flex: 4,
             child: Padding(
@@ -269,23 +272,21 @@ class _HoverScaleGridWrapperState extends State<_HoverScaleGridWrapper> {
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _isPressed ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 120),
         child: Container(
           decoration: BoxDecoration(
             color: widget.bgColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border(
-              top: BorderSide(color: widget.borderColor, width: 2),
-              left: BorderSide(color: widget.borderColor, width: 2),
-              right: BorderSide(color: widget.borderColor, width: 2),
-              bottom: BorderSide(color: widget.borderColor, width: 2),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: widget.borderColor.withOpacity(0.35),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
