@@ -42,7 +42,11 @@ class _MatchPairsScreenState extends State<MatchPairsScreen> {
   
   String? _selectedLeftId;
   Set<String> _matchedIds = {};
+  String _playMode = 'Equipes'; // 'Equipes' ou 'Alunos'
   String _lessonTheme = 'Aula de Hoje';
+  int _activeTeamIndex = 0; // 0: Grupo A 🔵, 1: Grupo B 🟡
+  final List<String> _teamNames = ['Grupo A 🔵', 'Grupo B 🟡'];
+  final Map<String, int> _scores = {'Grupo A 🔵': 0, 'Grupo B 🟡': 0};
 
   @override
   void initState() {
@@ -84,6 +88,21 @@ class _MatchPairsScreenState extends State<MatchPairsScreen> {
     if (_selectedLeftId == id) {
       // Match correto!
       AudioService.instance.playVictory();
+      
+      final currentScorer = _playMode == 'Equipes' ? _teamNames[_activeTeamIndex] : 'Aluno';
+      if (_playMode == 'Equipes') {
+        _scores[currentScorer] = (_scores[currentScorer] ?? 0) + 10;
+        _activeTeamIndex = (_activeTeamIndex + 1) % 2;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎉 $currentScorer acertou! +10 pts 🎯', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+          duration: const Duration(milliseconds: 1500),
+          backgroundColor: Colors.green.shade600,
+        ),
+      );
+
       setState(() {
         _matchedIds.add(id);
         _selectedLeftId = null;
@@ -174,6 +193,51 @@ class _MatchPairsScreenState extends State<MatchPairsScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('Quem joga: ', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _playMode = _playMode == 'Equipes' ? 'Alunos' : 'Equipes';
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.azulCeleste.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _playMode == 'Equipes' ? '👥 Equipes' : '👤 Alunos',
+                              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.azulCeleste),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_playMode == 'Equipes')
+                    Row(
+                      children: [
+                        Text('🔵 ${_scores['Grupo A 🔵'] ?? 0} pts', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                        const SizedBox(width: 8),
+                        Text('🟡 ${_scores['Grupo B 🟡'] ?? 0} pts', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+                      ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
@@ -187,7 +251,9 @@ class _MatchPairsScreenState extends State<MatchPairsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Toque em um Personagem à esquerda e depois no seu Item à direita para ligar!',
+                        _playMode == 'Equipes'
+                            ? 'Vez do ${_teamNames[_activeTeamIndex]}: Toque no Personagem e no seu Item correspondente!'
+                            : 'Toque no Personagem à esquerda e no seu Item à direita para ligar!',
                         style: TextStyle(fontFamily: 'Nunito', fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                       ),
                     ),

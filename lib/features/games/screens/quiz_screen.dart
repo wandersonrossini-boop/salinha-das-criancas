@@ -633,8 +633,8 @@ class _QuizScreenState extends State<QuizScreen> {
           child: Column(
             children: [
               Text(
-                t.name.split(' ').first,
-                style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 12),
+                t.name,
+                style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: tColor, fontSize: 13),
               ),
               const SizedBox(height: 2),
               Text(
