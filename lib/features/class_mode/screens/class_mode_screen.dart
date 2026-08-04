@@ -41,7 +41,18 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
   List<Student> _groupB = [];
   bool _hasDividedGroups = false;
 
-  Future<void> _divideIntoGroups() async {
+  Future<bool> _isCompletedToday() async {
+    if (_currentPlan?.id == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final hoje = DateTime.now().toIso8601String().split('T')[0];
+    final concluida = prefs.getBool('lesson_completed_${_currentPlan!.id}') ?? false;
+    final concluidaData = prefs.getString('lesson_completed_${_currentPlan!.id}_data') ?? '';
+    return concluida && (concluidaData.isEmpty || concluidaData == hoje);
+  }
+
+  Future<void> _ensureGroupsLoaded() async {
+    if (_hasDividedGroups && (_groupA.isNotEmpty || _groupB.isNotEmpty)) return;
+
     final students = await DatabaseHelper.instance.fetchAllStudents();
     final prefs = await SharedPreferences.getInstance();
     final presentIds = prefs.getStringList('present_student_ids') ?? [];
@@ -51,14 +62,10 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
       presentStudents.addAll(students);
     }
 
-    presentStudents.shuffle();
     final half = (presentStudents.length / 2).ceil();
-
-    setState(() {
-      _groupA = presentStudents.take(half).toList();
-      _groupB = presentStudents.skip(half).toList();
-      _hasDividedGroups = true;
-    });
+    _groupA = presentStudents.take(half).toList();
+    _groupB = presentStudents.skip(half).toList();
+    _hasDividedGroups = true;
   }
 
   Future<void> _finishLessonAndShowReport() async {
@@ -214,98 +221,91 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
   }
 
   Widget _buildCollaborativeGroupsWidget() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.purple.shade50.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.purple.shade100, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.purple.shade50.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.purple.shade100, width: 1),
+        ),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          iconColor: AppColors.roxoAcolhedor,
+          collapsedIconColor: AppColors.roxoAcolhedor,
+          title: const Row(
             children: [
-              Icon(Icons.groups_rounded, color: AppColors.roxoAcolhedor, size: 20),
+              Icon(Icons.groups_rounded, color: AppColors.roxoAcolhedor, size: 18),
               SizedBox(width: 8),
               Text(
-                'Grupos de Atividade (Colaborativo)',
-                style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                'Visualizar Grupos da Atividade',
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (!_hasDividedGroups) ...[
-            const Text(
-              'Divida a turma em 2 grupos para realizar a atividade prática sem foco competitivo.',
-              style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF475569)),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => _divideIntoGroups(),
-              icon: const Icon(Icons.shuffle_rounded, size: 16),
-              label: const Text('Dividir Presentes em 2 Grupos Agora'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.roxoAcolhedor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-            ),
-          ] else ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
+          children: [
+            FutureBuilder<void>(
+              future: _ensureGroupsLoaded(),
+              builder: (context, snapshot) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Grupo A 🔵', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E40AF))),
+                            const SizedBox(height: 6),
+                            if (_groupA.isEmpty)
+                              const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey))
+                            else
+                              ..._groupA.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 12.5, color: Color(0xFF1E293B)))),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Grupo A 🔵', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
-                        const SizedBox(height: 6),
-                        ..._groupA.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF1E293B)))),
-                        if (_groupA.isEmpty) const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey)),
-                      ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Grupo B 🟡', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFB45309))),
+                            const SizedBox(height: 6),
+                            if (_groupB.isEmpty)
+                              const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey))
+                            else
+                              ..._groupB.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 12.5, color: Color(0xFF1E293B)))),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Grupo B 🟡', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                        const SizedBox(height: 6),
-                        ..._groupB.map((s) => Text('• ${s.name}', style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF1E293B)))),
-                        if (_groupB.isEmpty) const Text('Nenhum aluno', style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextButton.icon(
-              onPressed: () => _divideIntoGroups(),
-              icon: const Icon(Icons.refresh_rounded, size: 14),
-              label: const Text('Reorganizar Grupos'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.roxoAcolhedor),
+                  ],
+                );
+              },
             ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1011,66 +1011,6 @@ Boa semana a todas as famílias! 🙏
                                         ),
                                       ),
                                     ),
-                                  ] else ...[
-                                    const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () async {
-                                          try {
-                                            // 1. Tentar salvar/atualizar no banco com isolamento de erro
-                                            try {
-                                               if (_currentPlan != null) {
-                                                 await DatabaseHelper.instance.markLessonAsCompleted(
-                                                   _currentPlan!.id,
-                                                   themeTitle: _currentPlan!.title,
-                                                 );
-                                               }
-                                            } catch (dbError) {
-                                              debugPrint('Erro ao atualizar banco (ignorado para evitar crash): $dbError');
-                                            }
-
-                                            if (!context.mounted) return;
-
-                                            // 2. Feedback ao usuário
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('🎉 Ministração concluída com sucesso!'),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-
-                                            // 3. Fechar tela com segurança sem estourar rota
-                                            if (Navigator.canPop(context)) {
-                                              Navigator.pop(context);
-                                            } else {
-                                              Navigator.pushReplacementNamed(context, '/');
-                                            }
-                                          } catch (e) {
-                                            debugPrint('Erro capturado no botão de encerramento: $e');
-                                            // Fallback absoluto: garante que o app volta para a Home e NUNCA mostra tela azul
-                                            if (context.mounted) {
-                                              if (Navigator.canPop(context)) {
-                                                Navigator.pop(context);
-                                              } else {
-                                                Navigator.pushReplacementNamed(context, '/');
-                                              }
-                                            }
-                                          }
-                                        },
-                                        icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                                        label: const Text('Finalizar Ministração'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.verdePasto,
-                                          foregroundColor: Colors.white,
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
                                   ],
                                 ],
                               ),
@@ -1210,17 +1150,23 @@ Boa semana a todas as famílias! 🙏
               ),
             ),
             const SizedBox(height: 10),
-            ElevatedButton.icon(
-              onPressed: () => _finishLessonAndShowReport(),
-              icon: const Icon(Icons.flag_rounded, size: 18),
-              label: const Text('🏁 Finalizar Ministração e Ver Relatório'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.verdePasto,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
+            FutureBuilder<bool>(
+              future: _isCompletedToday(),
+              builder: (context, snapshot) {
+                final isCompleted = snapshot.data ?? false;
+                return ElevatedButton.icon(
+                  onPressed: () => _finishLessonAndShowReport(),
+                  icon: Icon(isCompleted ? Icons.bar_chart_rounded : Icons.flag_rounded, size: 18),
+                  label: Text(isCompleted ? '📊 Ver Relatório da Aula' : '🏁 Finalizar Ministração'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.verdePasto,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                );
+              },
             ),
           ],
         );
