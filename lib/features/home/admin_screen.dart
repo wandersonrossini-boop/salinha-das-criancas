@@ -235,8 +235,17 @@ class _AdminScreenState extends State<AdminScreen> {
                                         final day = selected.day.toString().padLeft(2, '0');
                                         final month = selected.month.toString().padLeft(2, '0');
                                         final formatted = '$day/$month/${selected.year}';
+                                        
+                                        final now = DateTime.now();
+                                        int calculatedAge = now.year - selected.year;
+                                        if (now.month < selected.month || (now.month == selected.month && now.day < selected.day)) {
+                                          calculatedAge--;
+                                        }
+                                        if (calculatedAge < 0) calculatedAge = 0;
+
                                         setModalState(() {
                                           birthDateController.text = formatted;
+                                          ageController.text = calculatedAge.toString();
                                         });
                                         checkChanges();
                                       }
@@ -796,71 +805,71 @@ class _AdminScreenState extends State<AdminScreen> {
                       }
                     ),
                   ),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    child: Builder(
+                      builder: (context) {
+                        final rawName = (data['nome'] as String?) ?? 'Sem nome';
+                        final formattedName = rawName.split(' ').map((word) {
+                          if (word.isEmpty) return '';
+                          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+                        }).join(' ');
+
+                        final teacherSessions = _attendanceHistory.where((att) {
+                          final name = (att['teacher_name'] as String?)?.toLowerCase() ?? '';
+                          final profId = (att['teacher_id'] as String?)?.toLowerCase() ?? '';
+                          final currentProfName = rawName.toLowerCase();
+                          return name.contains(currentProfName) || currentProfName.contains(name) || profId.contains(currentProfName);
+                        }).toList();
+
+                        final totalAulas = teacherSessions.length;
+                        final lastDateText = teacherSessions.isNotEmpty
+                            ? (teacherSessions.first['date'] as String? ?? 'Recentemente')
+                            : 'Nenhuma aula recente';
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(data['nome'] ?? 'Sem nome', style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (data['role'] == 'admin' || data['email']?.contains('admin') == true) 
-                                    ? const Color(0xFFFEF3C7) 
-                                    : const Color(0xFFE0F2FE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                (data['role'] == 'admin' || data['email']?.contains('admin') == true) ? '👑 Admin' : '🏫 Professor',
-                                style: TextStyle(
-                                  fontFamily: 'Fredoka',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 9,
-                                  color: (data['role'] == 'admin' || data['email']?.contains('admin') == true) 
-                                      ? const Color(0xFFD97706) 
-                                      : const Color(0xFF0284C7),
+                            Row(
+                              children: [
+                                Text(formattedName, style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: (data['role'] == 'admin' || data['email']?.contains('admin') == true) 
+                                        ? const Color(0xFFFEF3C7) 
+                                        : const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    (data['role'] == 'admin' || data['email']?.contains('admin') == true) ? '👑 Admin' : '🏫 Professor',
+                                    style: TextStyle(
+                                      fontFamily: 'Fredoka',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 9,
+                                      color: (data['role'] == 'admin' || data['email']?.contains('admin') == true) 
+                                          ? const Color(0xFFD97706) 
+                                          : const Color(0xFF0284C7),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-                        Text(data['email'] ?? '', style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B))),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.history_edu_rounded, size: 12, color: Color(0xFF94A3B8)),
-                            const SizedBox(width: 4),
-                            const Text(
-                              '12 aulas ministradas • Ontem',
-                              style: TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF94A3B8)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isAtivo ? const Color(0x1210B981) : const Color(0x12EF4444),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isAtivo ? 'ATIVO' : 'INATIVO',
-                                style: TextStyle(
-                                  fontFamily: 'Fredoka',
-                                  color: isAtivo ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 10,
+                            Text(data['email'] ?? '', style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B))),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.history_edu_rounded, size: 12, color: Color(0xFF94A3B8)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$totalAulas aulas ministradas • $lastDateText',
+                                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF94A3B8)),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                   Switch.adaptive(
