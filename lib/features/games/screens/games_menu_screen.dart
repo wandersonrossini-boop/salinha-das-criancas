@@ -10,136 +10,13 @@ class GamesMenuScreen extends StatelessWidget {
   final String? linkedLessonTitle;
   const GamesMenuScreen({super.key, this.linkedLessonTitle});
 
-  void _showColoringSheetsModal(BuildContext context, String lessonTitle) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    '🎨 Desenhos de Apoio: $lessonTitle',
-                    style: const TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Materiais em PDF e imagens para colorir pré-filtrados para esta lição:',
-              style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildColoringCard(
-                    ctx,
-                    title: 'Desenho Principal para Colorir',
-                    subtitle: 'Ilustração temática da história para colorir na salinha.',
-                    icon: Icons.draw_rounded,
-                    color: Colors.purple,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildColoringCard(
-                    ctx,
-                    title: 'Atividade de Caça-Palavras',
-                    subtitle: 'Folha de exercícios com termos da aula de hoje.',
-                    icon: Icons.grid_on_rounded,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildColoringCard(
-                    ctx,
-                    title: 'Cartão de Versículo para Levar para Casa',
-                    subtitle: 'Lembrancinha com o versículo chave para os pais.',
-                    icon: Icons.card_giftcard_rounded,
-                    color: Colors.amber.shade800,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildColoringCard(BuildContext context, {required String title, required String subtitle, required IconData icon, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(fontFamily: 'Nunito', fontSize: 12.5, color: Color(0xFF334155))),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('📥 Download iniciado para: $title'),
-                  backgroundColor: color,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            icon: const Icon(Icons.download_rounded, size: 16),
-            label: const Text('PDF', style: TextStyle(fontFamily: 'Fredoka', fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final activeTitle = linkedLessonTitle ?? 'Aula de Hoje';
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Jogos e Dinâmicas 🎨',
+          'Jogos e Dinâmicas',
           style: TextStyle(
             fontFamily: 'Fredoka',
             fontWeight: FontWeight.bold,
@@ -184,46 +61,24 @@ class GamesMenuScreen extends StatelessWidget {
                 const SizedBox(height: 10),
               ],
               
-              // Cabeçalho com largura total garantida para o texto
+              // Cabeçalho com largura total garantida para o texto sem quebrar verticalmente
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Escolha uma atividade ou jogo para complementar sua aula.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Nunito',
-                        fontSize: 14,
-                        color: Color(0xFF4A5568),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showColoringSheetsModal(context, activeTitle),
-                        icon: const Icon(Icons.palette_rounded, size: 18),
-                        label: const Text(
-                          '🎨 Desenhos e Folhas de Apoio para Colorir (PDF)',
-                          style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.purple.shade700,
-                          side: BorderSide(color: Colors.purple.shade300, width: 1.5),
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
+                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                child: const Text(
+                  'Escolha uma atividade ou jogo para complementar sua aula.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 14,
+                    color: Color(0xFF4A5568),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
               
-              // Grade Responsiva de Jogos
+              // Grade Responsiva dos 6 Jogos Interativos
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
