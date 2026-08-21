@@ -28,6 +28,7 @@ dependencies:
   firebase_auth: ^5.1.0
   cloud_firestore: ^5.0.0
   image: ^4.5.4
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -46,3 +47,4 @@ flutter:
     - assets/images/mascot/expressions/
     - assets/images/mascot/poses/
     - assets/images/mascot/actions/
+    - assets/images/games/

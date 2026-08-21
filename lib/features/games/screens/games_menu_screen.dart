@@ -17,7 +17,7 @@ class GamesMenuScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Central de Jogos',
+          'Jogos e Dinâmicas',
           style: TextStyle(
             fontFamily: 'Fredoka',
             fontWeight: FontWeight.bold,
@@ -33,7 +33,7 @@ class GamesMenuScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // Pastel background shapes (reduced opacity by 15%)
+          // Pastel background shapes
           Positioned(
             top: -50,
             left: -50,
@@ -60,297 +60,284 @@ class GamesMenuScreen extends StatelessWidget {
           ),
           
           SafeArea(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
-              children: [
-                // Title and subtitle refined for premium layout and visibility
-                Center(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Escolha uma dinâmica!',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: const Text(
+                        'Escolha uma atividade para complementar sua aula.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'Fredoka',
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.2,
+                          fontFamily: 'Nunito',
+                          fontSize: 14,
+                          color: Color(0xFF475569),
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 320),
-                        child: const Text(
-                          'Escolha uma dinâmica para sua aula.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 13,
-                            color: Color(0xFF475569),
-                            fontWeight: FontWeight.w600,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                
-                _buildPremiumCard(
-                  context,
-                  'Quiz Bíblico',
-                  'Perguntas bíblicas de múltipla escolha.',
-                  Icons.help_outline_rounded,
-                  [const Color(0xFF1E3A8A), const Color(0xFF3B82F6), const Color(0xFF60A5FA)],
-                  '🏆 Competitivo',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen())),
-                ),
-                const SizedBox(height: 10),
-                _buildPremiumCard(
-                  context,
-                  'Sorteio (Roleta)',
-                  'Roleta interativa para sorteios e dinâmica.',
-                  Icons.cached_rounded,
-                  [const Color(0xFFB45309), const Color(0xFFF59E0B), const Color(0xFFFBBF24)],
-                  '✨ Sorte',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RouletteScreen())),
-                ),
-                const SizedBox(height: 10),
-                _buildPremiumCard(
-                  context,
-                  'Quem Sou Eu?',
-                  'Descubra o personagem bíblico por dicas.',
-                  Icons.psychology_rounded,
-                  [const Color(0xFF5B21B6), const Color(0xFF8B5CF6), const Color(0xFFA78BFA)],
-                  '🧠 Desafio',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CharadasScreen())),
-                ),
-                const SizedBox(height: 10),
-                _buildPremiumCard(
-                  context,
-                  'Batata Quente',
-                  'Passe o objeto antes que o tempo acabe.',
-                  Icons.local_fire_department_rounded,
-                  [const Color(0xFF991B1B), const Color(0xFFEF4444), const Color(0xFFF87171)],
-                  '⏱ Tempo',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CronometroScreen())),
-                ),
-                const SizedBox(height: 10),
-                _buildPremiumCard(
-                  context,
-                  'Jogo da Memória',
-                  'Encontre os pares dos símbolos bíblicos.',
-                  Icons.grid_view_rounded,
-                  [const Color(0xFF065F46), const Color(0xFF10B981), const Color(0xFF34D399)],
-                  '💡 Memória',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoMemoriaScreen())),
-                ),
-                const SizedBox(height: 10),
-                _buildPremiumCard(
-                  context,
-                  'Jogo dos 7 Erros',
-                  'Disputa interativa de encontrar os 7 erros.',
-                  Icons.difference_rounded,
-                  [const Color(0xFF155E75), const Color(0xFF06B6D4), const Color(0xFF22D3EE)],
-                  '👁 Atenção',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoSeteErrosScreen())),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 12),
+                  
+                  // Non-scrollable layout divided into 3 equal rows using Expanded
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Column(
+                        children: [
+                          // Row 1
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Quiz Bíblico',
+                                    badge: 'Competitivo',
+                                    imagePath: 'assets/images/games/game_quiz_biblico.png',
+                                    backgroundColor: const Color(0xFFEEF5FF),
+                                    borderColor: const Color(0xFFD0E0FF),
+                                    accentColor: Colors.blue,
+                                    semanticLabel: 'Abrir Quiz Bíblico',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen())),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Roleta de Sorteios',
+                                    badge: 'Sorte',
+                                    imagePath: 'assets/images/games/game_roleta.png',
+                                    backgroundColor: const Color(0xFFFFF6E5),
+                                    borderColor: const Color(0xFFFFE3C8),
+                                    accentColor: Colors.orange,
+                                    semanticLabel: 'Abrir Roleta de Sorteios',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RouletteScreen())),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // Row 2
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Quem Sou Eu?',
+                                    badge: 'Desafio',
+                                    imagePath: 'assets/images/games/game_quem_sou_eu.png',
+                                    backgroundColor: const Color(0xFFF7F0FF),
+                                    borderColor: const Color(0xFFE4D3F9),
+                                    accentColor: Colors.purple,
+                                    semanticLabel: 'Abrir jogo Quem Sou Eu',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CharadasScreen())),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Batata Quente',
+                                    badge: 'Tempo',
+                                    imagePath: 'assets/images/games/game_batata_quente.png',
+                                    backgroundColor: const Color(0xFFFFF0F1),
+                                    borderColor: const Color(0xFFFFD4D4),
+                                    accentColor: const Color(0xFFFF7F50),
+                                    semanticLabel: 'Abrir Batata Quente',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CronometroScreen())),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // Row 3
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Jogo da Memória',
+                                    badge: 'Memória',
+                                    imagePath: 'assets/images/games/game_memoria.png',
+                                    backgroundColor: const Color(0xFFEDFAF4),
+                                    borderColor: const Color(0xFFC6F4DC),
+                                    accentColor: Colors.green,
+                                    scale: 1.15,
+                                    semanticLabel: 'Abrir Jogo da Memória',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoMemoriaScreen())),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: IllustratedGameCard(
+                                    title: 'Jogo dos 7 Erros',
+                                    badge: 'Atenção',
+                                    imagePath: 'assets/images/games/game_sete_erros.png',
+                                    backgroundColor: const Color(0xFFECF9FC),
+                                    borderColor: const Color(0xFFBFEFEE),
+                                    accentColor: Colors.cyan,
+                                    scale: 1.15,
+                                    semanticLabel: 'Abrir Jogo dos 7 Erros',
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JogoSeteErrosScreen())),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildPremiumCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData iconData,
-    List<Color> colors,
-    String badgeText,
-    VoidCallback onTap,
-  ) {
-    return _HoverScaleWrapper(
-      onTap: onTap,
-      colors: colors,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 11.0),
-        child: Row(
-          children: [
-            // High fidelity 3D style illustrations
-            Container(
-              height: 48,
-              width: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.24),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                iconData,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontFamily: 'Fredoka',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Chips premium 20% menores
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          badgeText,
-                          style: const TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 9.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 11,
-                      color: Colors.white.withOpacity(0.88),
-                      fontWeight: FontWeight.w500,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // White translucent circular button with shadow and material chevron
-            Container(
-              height: 28,
-              width: 28,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.25),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  )
-                ],
-              ),
-              child: const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// Widget Stateful customizado para lidar com toque/hover estilo Duolingo
-class _HoverScaleWrapper extends StatefulWidget {
-  final Widget child;
+class IllustratedGameCard extends StatefulWidget {
+  final String title;
+  final String badge;
+  final String imagePath;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color accentColor;
   final VoidCallback onTap;
-  final List<Color> colors;
+  final String semanticLabel;
+  final double scale;
 
-  const _HoverScaleWrapper({
-    required this.child,
+  const IllustratedGameCard({
+    super.key,
+    required this.title,
+    required this.badge,
+    required this.imagePath,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.accentColor,
     required this.onTap,
-    required this.colors,
+    required this.semanticLabel,
+    this.scale = 1.0,
   });
 
   @override
-  State<_HoverScaleWrapper> createState() => _HoverScaleWrapperState();
+  State<IllustratedGameCard> createState() => _IllustratedGameCardState();
 }
 
-class _HoverScaleWrapperState extends State<_HoverScaleWrapper> {
+class _IllustratedGameCardState extends State<IllustratedGameCard> {
   bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              colors: widget.colors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return Semantics(
+      label: widget.semanticLabel,
+      button: true,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.95 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          child: Container(
+            decoration: BoxDecoration(
+              color: widget.backgroundColor,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: widget.borderColor, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.borderColor,
+                  offset: const Offset(0, 2),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                ),
+              ],
             ),
-            boxShadow: [
-              // Sombras ricas em múltiplas camadas
-              BoxShadow(
-                color: widget.colors[0].withOpacity(_isPressed ? 0.15 : 0.22),
-                blurRadius: _isPressed ? 10 : 16,
-                spreadRadius: _isPressed ? -1 : -2,
-                offset: Offset(0, _isPressed ? 3 : 6),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 55,
+                      child: Container(
+                        alignment: Alignment.center,
+                        child: Transform.scale(
+                          scale: widget.scale,
+                          child: Image.asset(
+                            widget.imagePath,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (context, error, stackTrace) {
+                              debugPrint('Erro ao carregar imagem: ${widget.imagePath}');
+                              return Icon(
+                                Icons.image_not_supported_rounded, 
+                                size: 48, 
+                                color: widget.accentColor.withOpacity(0.5)
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      flex: 45,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.title,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Fredoka',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1A2B4C),
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: widget.accentColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.badge,
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: widget.accentColor,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              BoxShadow(
-                color: widget.colors[1].withOpacity(_isPressed ? 0.1 : 0.15),
-                blurRadius: _isPressed ? 6 : 10,
-                spreadRadius: -2,
-                offset: Offset(0, _isPressed ? 1 : 3),
-              ),
-              // Iluminação interna suave
-              BoxShadow(
-                color: Colors.white.withOpacity(0.15),
-                blurRadius: 4,
-                spreadRadius: -1,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: widget.child,
+            ),
           ),
         ),
       ),

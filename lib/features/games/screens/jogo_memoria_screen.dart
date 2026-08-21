@@ -5,15 +5,19 @@ import '../../../core/db/database_helper.dart';
 import '../../teams/models/team.dart';
 import '../../../core/components/mascot/mascot_widget.dart';
 
+import '../../ai_planner/models/lesson_plan.dart';
+
 class JogoMemoriaIcon {
-  final IconData iconData;
+  final IconData? iconData;
+  final String? word;
   final Color color;
 
-  const JogoMemoriaIcon(this.iconData, this.color);
+  const JogoMemoriaIcon({this.iconData, this.word, required this.color});
 }
 
 class JogoMemoriaScreen extends StatefulWidget {
-  const JogoMemoriaScreen({super.key});
+  final LessonPlan? plan;
+  const JogoMemoriaScreen({super.key, this.plan});
 
   @override
   State<JogoMemoriaScreen> createState() => _JogoMemoriaScreenState();
@@ -34,18 +38,18 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
 
   // Bible Card System Illustration Icons
   final List<JogoMemoriaIcon> _ilustracoesBiblicas = [
-    const JogoMemoriaIcon(Icons.menu_book_rounded, Color(0xFF1E3A8A)), // Bible
-    const JogoMemoriaIcon(Icons.sailing_rounded, Color(0xFFB45309)), // Noah's Ark
-    const JogoMemoriaIcon(Icons.favorite_rounded, Color(0xFFBE185D)), // Love
-    const JogoMemoriaIcon(Icons.emoji_events_rounded, Color(0xFFF59E0B)), // Crown
-    const JogoMemoriaIcon(Icons.pets_rounded, Color(0xFF047857)), // Lion
-    const JogoMemoriaIcon(Icons.wb_sunny_rounded, Color(0xFFEAB308)), // Star
-    const JogoMemoriaIcon(Icons.church_rounded, Color(0xFF6D28D9)), // Church
-    const JogoMemoriaIcon(Icons.local_fire_department_rounded, Color(0xFFDC2626)), // Holy Spirit
-    const JogoMemoriaIcon(Icons.water_drop_rounded, Color(0xFF0284C7)), // Water
-    const JogoMemoriaIcon(Icons.lightbulb_rounded, Color(0xFFD97706)), // Light
-    const JogoMemoriaIcon(Icons.music_note_rounded, Color(0xFF4F46E5)), // Music
-    const JogoMemoriaIcon(Icons.key_rounded, Color(0xFF475569)), // Key
+    const JogoMemoriaIcon(iconData: Icons.menu_book_rounded, color: Color(0xFF1E3A8A)), // Bible
+    const JogoMemoriaIcon(iconData: Icons.sailing_rounded, color: Color(0xFFB45309)), // Noah's Ark
+    const JogoMemoriaIcon(iconData: Icons.favorite_rounded, color: Color(0xFFBE185D)), // Love
+    const JogoMemoriaIcon(iconData: Icons.emoji_events_rounded, color: Color(0xFFF59E0B)), // Crown
+    const JogoMemoriaIcon(iconData: Icons.pets_rounded, color: Color(0xFF047857)), // Lion
+    const JogoMemoriaIcon(iconData: Icons.wb_sunny_rounded, color: Color(0xFFEAB308)), // Star
+    const JogoMemoriaIcon(iconData: Icons.church_rounded, color: Color(0xFF6D28D9)), // Church
+    const JogoMemoriaIcon(iconData: Icons.local_fire_department_rounded, color: Color(0xFFDC2626)), // Holy Spirit
+    const JogoMemoriaIcon(iconData: Icons.water_drop_rounded, color: Color(0xFF0284C7)), // Water
+    const JogoMemoriaIcon(iconData: Icons.lightbulb_rounded, color: Color(0xFFD97706)), // Light
+    const JogoMemoriaIcon(iconData: Icons.music_note_rounded, color: Color(0xFF4F46E5)), // Music
+    const JogoMemoriaIcon(iconData: Icons.key_rounded, color: Color(0xFF475569)), // Key
   ];
 
   late List<JogoMemoriaIcon> _cartas;
@@ -85,7 +89,33 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
     int numPares = 12;
     int numCartas = numPares * 2;
     
-    List<JogoMemoriaIcon> ilustracoesSelecionadas = _ilustracoesBiblicas.take(numPares).toList();
+    List<JogoMemoriaIcon> poolCartas = _ilustracoesBiblicas;
+    
+    if (widget.plan != null && widget.plan!.storyTopics.isNotEmpty) {
+      final text = widget.plan!.storyTopics;
+      final words = text
+          .replaceAll(RegExp(r'[^\w\sÀ-ÿ]'), ' ')
+          .split(RegExp(r'\s+'))
+          .where((w) => w.length > 5)
+          .map((w) => w.toUpperCase())
+          .toSet()
+          .toList();
+      
+      if (words.length >= numPares) {
+        final colors = [
+          const Color(0xFF1E3A8A), const Color(0xFFB45309), const Color(0xFFBE185D),
+          const Color(0xFFF59E0B), const Color(0xFF047857), const Color(0xFFEAB308),
+          const Color(0xFF6D28D9), const Color(0xFFDC2626), const Color(0xFF0284C7),
+          const Color(0xFFD97706), const Color(0xFF4F46E5), const Color(0xFF475569),
+        ];
+        words.shuffle();
+        poolCartas = words.take(numPares).toList().asMap().entries.map((e) {
+          return JogoMemoriaIcon(word: e.value, color: colors[e.key % colors.length]);
+        }).toList();
+      }
+    }
+
+    List<JogoMemoriaIcon> ilustracoesSelecionadas = poolCartas.take(numPares).toList();
     _cartas = [...ilustracoesSelecionadas, ...ilustracoesSelecionadas];
     _cartas.shuffle();
     _reveladas = List.filled(numCartas, false);
@@ -127,7 +157,16 @@ class _JogoMemoriaScreenState extends State<JogoMemoriaScreen> {
       _primeiraCartaIndex = index;
     } else {
       _esperando = true;
-      if (_cartas[_primeiraCartaIndex!].iconData == _cartas[index].iconData) {
+      final card1 = _cartas[_primeiraCartaIndex!];
+      final card2 = _cartas[index];
+      bool isMatch = false;
+      if (card1.word != null && card2.word != null) {
+        isMatch = card1.word == card2.word;
+      } else {
+        isMatch = card1.iconData == card2.iconData;
+      }
+      
+      if (isMatch) {
         setState(() {
           _encontradas[_primeiraCartaIndex!] = true;
           _encontradas[index] = true;
@@ -620,11 +659,25 @@ class _MemoryCardWidgetState extends State<_MemoryCardWidget> with SingleTickerP
                         ],
                       ),
                       child: Center(
-                        child: Icon(
-                          widget.illustration.iconData,
-                          color: widget.illustration.color,
-                          size: 38,
-                        ),
+                        child: widget.illustration.word != null
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                              child: Text(
+                                widget.illustration.word!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontSize: 10, // Menor para caber no card
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.illustration.color,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              widget.illustration.iconData,
+                              color: widget.illustration.color,
+                              size: 38,
+                            ),
                       ),
                     ),
                   )

@@ -313,7 +313,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
           child: ElevatedButton.icon(
             onPressed: _sortearEquipesBalanceadas,
             icon: const Icon(Icons.shuffle_rounded, size: 18),
-            label: const Text('Sortear Equipes Balanceadas', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold)),
+            label: const Text('Balancear Equipes Auto', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.laranjaCriativo,
               foregroundColor: Colors.white,
@@ -364,6 +364,37 @@ class _TeamsScreenState extends State<TeamsScreen> {
     );
   }
 
+  Widget _buildScoreAdjustButton({
+    required String text,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: color, width: 1.5),
+          foregroundColor: color,
+          backgroundColor: color.withOpacity(0.04),
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Fredoka',
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -408,22 +439,6 @@ class _TeamsScreenState extends State<TeamsScreen> {
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF0F172A),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.star_rounded, color: AppColors.amareloSol, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${team.points} Pontos',
-                              style: const TextStyle(
-                                fontFamily: 'Fredoka',
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF475569),
-                              ),
-                            ),
-                          ],
                         ),
                         const SizedBox(height: 10),
                         Builder(
@@ -479,8 +494,41 @@ class _TeamsScreenState extends State<TeamsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  // Painel de Ações Agrupadas
+                  const SizedBox(width: 12),
+                  // Destaque do Placar (Pontos Bem Visíveis)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: teamColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: teamColor.withOpacity(0.2), width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${team.points}',
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: teamColor,
+                          ),
+                        ),
+                        const Text(
+                          'PONTOS',
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  // Painel de Ações Agrupadas (+5, +10, -5)
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -489,16 +537,26 @@ class _TeamsScreenState extends State<TeamsScreen> {
                         icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF64748B), size: 24),
                         tooltip: 'Editar / Excluir Equipe',
                       ),
+                      const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            onPressed: () => _addPoints(team, -10),
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.alerta, size: 22),
+                          _buildScoreAdjustButton(
+                            text: '-5',
+                            color: AppColors.alerta,
+                            onPressed: () => _addPoints(team, -5),
                           ),
-                          IconButton(
+                          const SizedBox(width: 6),
+                          _buildScoreAdjustButton(
+                            text: '+5',
+                            color: AppColors.azulCeleste,
+                            onPressed: () => _addPoints(team, 5),
+                          ),
+                          const SizedBox(width: 6),
+                          _buildScoreAdjustButton(
+                            text: '+10',
+                            color: AppColors.verdePasto,
                             onPressed: () => _addPoints(team, 10),
-                            icon: const Icon(Icons.add_circle_rounded, color: AppColors.verdePasto, size: 30),
                           ),
                         ],
                       ),

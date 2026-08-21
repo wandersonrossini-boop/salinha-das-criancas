@@ -7,10 +7,13 @@ import '../../teams/models/team.dart';
 import '../../students/models/student.dart';
 import '../../../core/components/mascot/mascot_widget.dart';
 
+import '../../ai_planner/models/lesson_plan.dart';
+
 enum FaseJogo { preparando, emAndamento, chute, resultado, finalizado }
 
 class CharadasScreen extends StatefulWidget {
-  const CharadasScreen({super.key});
+  final LessonPlan? plan;
+  const CharadasScreen({super.key, this.plan});
 
   @override
   State<CharadasScreen> createState() => _CharadasScreenState();
@@ -130,7 +133,40 @@ class _CharadasScreenState extends State<CharadasScreen> {
   void initState() {
     super.initState();
     _loadTeams();
+    _setupDynamicPersonagens();
     _sortearPersonagem(reiniciarRodadas: true);
+  }
+
+  void _setupDynamicPersonagens() {
+    if (widget.plan != null && widget.plan!.storyTopics.isNotEmpty) {
+      // Tenta extrair sentenças do storyTopics
+      final text = widget.plan!.storyTopics;
+      final sentences = text.split(RegExp(r'[.!?\n]')).where((s) => s.trim().length > 10).map((s) => s.trim()).toList();
+      
+      List<String> hints = [];
+      if (sentences.length >= 3) {
+        hints = sentences.take(3).toList();
+      } else if (sentences.isNotEmpty) {
+        hints = [sentences.first, 'Dica extraída da história!', 'Você prestou atenção na aula?'];
+      } else {
+        hints = ['Sobre a história de hoje.', 'Lembra do que o professor falou?', 'Você é o personagem principal!'];
+      }
+
+      final dynamicPersonagem = {
+        'nome': widget.plan!.title.replaceAll(RegExp(r'Aula \d+ - '), ''),
+        'emoji': '✨🤔',
+        'historia': 'Personagem extraído da aula de hoje!',
+        'referencia': 'Aula do Dia',
+        'categoria': 'Tema da Aula',
+        'dicas': hints
+      };
+
+      // Substituímos ou adicionamos? Vamos adicionar no topo e garantir que seja escolhido.
+      _personagens.insert(0, dynamicPersonagem);
+      
+      // Limita a sortear só esse para a aula de hoje
+      _personagens.removeWhere((p) => p['nome'] != dynamicPersonagem['nome']);
+    }
   }
 
   void _sortearPersonagem({bool reiniciarRodadas = false}) {

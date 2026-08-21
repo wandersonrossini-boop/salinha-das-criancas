@@ -4,11 +4,18 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/db/database_helper.dart';
 import '../../teams/models/team.dart';
 
+import '../../ai_planner/models/lesson_plan.dart';
+import 'dart:convert';
+
 enum QuizState { setup, playing, finished }
 
 class QuizScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? customQuestions;
-  const QuizScreen({super.key, this.customQuestions});
+  final LessonPlan? plan;
+  final String? title;
+  final List<Map<String, dynamic>>? questions;
+
+  const QuizScreen({super.key, this.customQuestions, this.plan, this.title, this.questions});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -22,6 +29,24 @@ class _QuizScreenState extends State<QuizScreen> {
   Team? _activeTeam;
   
   late List<Map<String, dynamic>> _questions;
+  String _selectedAgeBand = 'Todas';
+
+  List<Map<String, dynamic>> get _filteredQuestions {
+    if (_selectedAgeBand == 'Todas') {
+      return _questions;
+    }
+    return _questions.where((q) {
+      final band = q['ageBand'] ?? q['faixaEtaria'];
+      return band == _selectedAgeBand;
+    }).toList();
+  }
+
+  int get _actualTotalQuestions {
+    final filteredCount = _filteredQuestions.length;
+    if (filteredCount == 0) return 0;
+    return filteredCount < _totalQuestions ? filteredCount : _totalQuestions;
+  }
+
   int _currentQuestionIndex = 0;
   
   int _streak = 0;
@@ -40,61 +65,71 @@ class _QuizScreenState extends State<QuizScreen> {
       'question': 'Quem derrotou o gigante Golias?',
       'options': ['Moisés', 'Davi', 'Paulo', 'Pedro'],
       'answer': 'Davi',
-      'curiosidade': 'Davi usou apenas uma pedra e uma funda, mostrando que a confiança em Deus vence qualquer obstáculo!'
+      'curiosidade': 'Davi usou apenas uma pedra e uma funda, mostrando que a confiança em Deus vence qualquer obstáculo!',
+      'ageBand': '4-6'
     },
     {
       'question': 'Quem foi engolido por um grande peixe?',
       'options': ['Elias', 'João', 'Jonas', 'Noé'],
       'answer': 'Jonas',
-      'curiosidade': 'Jonas ficou três dias na barriga do peixe até se arrepender e obedecer ao chamado de Deus.'
+      'curiosidade': 'Jonas ficou três dias na barriga do peixe até se arrepender e obedecer ao chamado de Deus.',
+      'ageBand': '4-6'
     },
     {
       'question': 'Quantos dias e noites choveu no dilúvio?',
       'options': ['10', '40', '7', '100'],
       'answer': '40',
-      'curiosidade': 'Depois dos 40 dias de chuva, Deus colocou o arco-íris nas nuvens como um pacto de amor.'
+      'curiosidade': 'Depois dos 40 dias de chuva, Deus colocou o arco-íris nas nuvens como um pacto de amor.',
+      'ageBand': '7-8'
     },
     {
       'question': 'Quem abriu o Mar Vermelho?',
       'options': ['Abraão', 'Moisés', 'Josué', 'Davi'],
       'answer': 'Moisés',
-      'curiosidade': 'Moisés estendeu seu cajado obedecendo a Deus, e um vento forte soprou abrindo caminho na água.'
+      'curiosidade': 'Moisés estendeu seu cajado obedecendo a Deus, e um vento forte soprou abrindo caminho na água.',
+      'ageBand': '4-6'
     },
     {
       'question': 'Quem foi lançado na cova dos leões?',
       'options': ['Daniel', 'Sadraque', 'Ezequiel', 'José'],
       'answer': 'Daniel',
-      'curiosidade': 'Daniel orava três vezes ao dia e Deus enviou um anjo para fechar a boca dos leões.'
+      'curiosidade': 'Daniel orava três vezes ao dia e Deus enviou um anjo para fechar a boca dos leões.',
+      'ageBand': '7-8'
     },
     {
       'question': 'Qual o nome do anjo que apareceu a Maria?',
       'options': ['Miguel', 'Gabriel', 'Rafael', 'Lúcifer'],
       'answer': 'Gabriel',
-      'curiosidade': 'O anjo Gabriel trouxe a mensagem mais feliz da história: o nascimento de Jesus!'
+      'curiosidade': 'O anjo Gabriel trouxe a mensagem mais feliz da história: o nascimento de Jesus!',
+      'ageBand': '9-11'
     },
     {
       'question': 'Jesus multiplicou 5 pães e quantos peixinhos?',
       'options': ['2', '3', '5', '7'],
       'answer': '2',
-      'curiosidade': 'Com apenas 5 pães e 2 peixinhos, Jesus alimentou mais de 5 mil pessoas e ainda sobrou comida!'
+      'curiosidade': 'Com apenas 5 pães e 2 peixinhos, Jesus alimentou mais de 5 mil pessoas e ainda sobrou comida!',
+      'ageBand': '4-6'
     },
     {
       'question': 'Quem foi o homem mais forte da Bíblia?',
       'options': ['Davi', 'Golias', 'Sansão', 'Saul'],
       'answer': 'Sansão',
-      'curiosidade': 'A força de Sansão vinha do Espírito do Senhor, mas ele precisava guardar o segredo de consagrado.'
+      'curiosidade': 'A força de Sansão vinha do Espírito do Senhor, mas ele precisava guardar o segredo de consagrado.',
+      'ageBand': '7-8'
     },
     {
       'question': 'Onde Jesus nasceu?',
       'options': ['Jerusalém', 'Nazaré', 'Belém', 'Egito'],
       'answer': 'Belém',
-      'curiosidade': 'Jesus nasceu em uma estrebaria em Belém e foi colocado em uma manjedoura.'
+      'curiosidade': 'Jesus nasceu em uma estrebaria em Belém e foi colocado em uma manjedoura.',
+      'ageBand': '4-6'
     },
     {
       'question': 'Quantos discípulos Jesus tinha?',
       'options': ['10', '12', '7', '14'],
       'answer': '12',
-      'curiosidade': 'Jesus chamou 12 homens comuns para andarem com Ele e pregarem a Palavra pelo mundo todo.'
+      'curiosidade': 'Jesus chamou 12 homens comuns para andarem com Ele e pregarem a Palavra pelo mundo todo.',
+      'ageBand': '9-11'
     },
   ];
 
@@ -128,8 +163,23 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_activeTeam == null) return;
     
     _defaultPool.shuffle();
-    if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
+    if (widget.plan != null && widget.plan!.questions.isNotEmpty) {
+      try {
+        final parsed = jsonDecode(widget.plan!.questions) as List;
+        _questions = parsed.map((e) => e as Map<String, dynamic>).toList();
+        if (_totalQuestions > _questions.length) {
+          _totalQuestions = _questions.length;
+        }
+      } catch (e) {
+        _questions = _defaultPool.take(_totalQuestions).toList();
+      }
+    } else if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
       _questions = List.from(widget.customQuestions!);
+      if (_totalQuestions > _questions.length) {
+        _totalQuestions = _questions.length;
+      }
+    } else if (widget.questions != null && widget.questions!.isNotEmpty) {
+      _questions = List.from(widget.questions!);
       if (_totalQuestions > _questions.length) {
         _totalQuestions = _questions.length;
       }
@@ -169,7 +219,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_answered) return;
     _timer?.cancel();
     
-    final correctAnswer = _questions[_currentQuestionIndex]['answer'] as String;
+    final correctAnswer = _filteredQuestions[_currentQuestionIndex]['answer'] as String;
     bool isCorrect = (option == correctAnswer);
     
     setState(() {
@@ -218,8 +268,8 @@ class _QuizScreenState extends State<QuizScreen> {
       enableDrag: false,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) {
-        final curiosidade = _questions[_currentQuestionIndex]['curiosidade'] ?? 'Os caminhos de Deus são incríveis!';
-        final correctAnswer = _questions[_currentQuestionIndex]['answer'] as String;
+        final curiosidade = _filteredQuestions[_currentQuestionIndex]['curiosidade'] ?? 'Os caminhos de Deus são incríveis!';
+        final correctAnswer = _filteredQuestions[_currentQuestionIndex]['answer'] as String;
         
         return Padding(
           padding: const EdgeInsets.all(24.0),
@@ -309,7 +359,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void _avancarQuiz() {
-    if (_currentQuestionIndex < _totalQuestions - 1) {
+    if (_currentQuestionIndex < _actualTotalQuestions - 1) {
       setState(() {
         _currentQuestionIndex++;
         _answered = false;
@@ -614,7 +664,35 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildPlaying() {
-    final question = _questions[_currentQuestionIndex];
+    if (_filteredQuestions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('🧩', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 12),
+              const Text(
+                'Nenhuma pergunta nesta faixa etária!',
+                style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedAgeBand = 'Todas';
+                  });
+                },
+                child: const Text('Mostrar Todas', style: TextStyle(fontFamily: 'Fredoka')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final question = _filteredQuestions[_currentQuestionIndex];
     final activeColor = Color(_activeTeam!.color);
     
     // Timer color pulsing state
@@ -633,13 +711,51 @@ class _QuizScreenState extends State<QuizScreen> {
         children: [
           // 1. Placar
           _buildScoreboard(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Seletor de Faixa Etária
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: ['Todas', '4-6', '7-8', '9-11'].map((band) {
+                final isSelected = (_selectedAgeBand == band);
+                final label = band == 'Todas' ? 'Todas' : '$band anos';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: ChoiceChip(
+                    label: Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.azulCeleste,
+                    backgroundColor: Colors.white,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedAgeBand = band;
+                          _currentQuestionIndex = 0; // Evita estouro de índice
+                        });
+                      }
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
           
           // 2. Barra de Progresso
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: (_currentQuestionIndex + 1) / _totalQuestions,
+              value: (_currentQuestionIndex + 1) / _actualTotalQuestions,
               minHeight: 8,
               backgroundColor: Colors.grey.shade200,
               color: AppColors.azulCeleste,
@@ -649,7 +765,7 @@ class _QuizScreenState extends State<QuizScreen> {
           
           // 3. Pergunta X de Y
           Text(
-            'Pergunta ${_currentQuestionIndex + 1} de $_totalQuestions',
+            'Pergunta ${_currentQuestionIndex + 1} de $_actualTotalQuestions',
             style: const TextStyle(fontFamily: 'Fredoka', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 10),
@@ -671,20 +787,45 @@ class _QuizScreenState extends State<QuizScreen> {
               style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 12, color: activeColor),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
-          // 6. Pergunta
+          // 6. Pergunta Card com Badge Pedagógico
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            constraints: const BoxConstraints(minHeight: 70),
-            alignment: Alignment.center,
-            child: Text(
-              question['question'],
-              style: const TextStyle(fontFamily: 'Fredoka', fontSize: 23, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              textAlign: TextAlign.center,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade100, width: 1.5),
+            ),
+            child: Column(
+              children: [
+                // Badge Pedagógico
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.azulCeleste.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Recomendado: ${question['ageBand'] ?? '7-8'} anos',
+                    style: const TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.azulCeleste,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  question['question'],
+                  style: const TextStyle(fontFamily: 'Fredoka', fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           
           // 7. Alternativas
           Expanded(
@@ -693,23 +834,44 @@ class _QuizScreenState extends State<QuizScreen> {
               itemCount: (question['options'] as List).length,
               itemBuilder: (context, index) {
                 final option = question['options'][index] as String;
+                final correctAnswer = question['answer'] as String;
+
+                Color cardBgColor = Colors.white;
+                Color textColor = AppColors.textPrimary;
+                Border? cardBorder;
+
+                if (_answered) {
+                  if (option == correctAnswer) {
+                    cardBgColor = const Color(0xFFDCFCE7); // Soft Green
+                    textColor = const Color(0xFF15803D); // Dark Green
+                    cardBorder = Border.all(color: const Color(0xFF22C55E), width: 1.5);
+                  } else if (option == _selectedOption) {
+                    cardBgColor = const Color(0xFFFEE2E2); // Soft Red
+                    textColor = const Color(0xFFB91C1C); // Dark Red
+                    cardBorder = Border.all(color: const Color(0xFFEF4444), width: 1.5);
+                  }
+                }
                 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
+                  padding: const EdgeInsets.only(bottom: 10.0),
                   child: _HoverScaleWrapper(
                     onTap: _answered ? () {} : () => _checkAnswer(option),
-                    colors: const [Colors.white, Color(0xFFF8FAFC)],
+                    colors: [cardBgColor, cardBgColor],
                     child: Container(
-                      height: 68,
+                      height: 60,
                       width: double.infinity,
                       alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: cardBorder,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Text(
                         option,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Nunito',
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textColor,
                         ),
                       ),
                     ),
@@ -717,6 +879,50 @@ class _QuizScreenState extends State<QuizScreen> {
                 );
               },
             ),
+          ),
+
+          // Painel de Usabilidade (Revelar Resposta / Avançar)
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (!_answered)
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _answered = true;
+                          _selectedOption = ''; // Revelar resposta sem penalidade
+                        });
+                      },
+                      icon: const Icon(Icons.visibility_rounded),
+                      label: const Text('Revelar Resposta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.azulCeleste,
+                        side: const BorderSide(color: AppColors.azulCeleste),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_answered)
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: _avancarQuiz,
+                      icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                      label: const Text('Avançar Pergunta', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.verdePasto,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
