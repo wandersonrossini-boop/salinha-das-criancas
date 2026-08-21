@@ -42,6 +42,50 @@ class MixedAgeStation {
   }
 }
 
+class BiblicalCore {
+  final String passage;
+  final String centralTruth;
+  final List<String> textSays;
+  final List<String> textAllowsToConclude;
+  final List<String> textDoesNotSay;
+  final List<String> historicalContext;
+  final String theologicalCore;
+
+  BiblicalCore({
+    required this.passage,
+    required this.centralTruth,
+    required this.textSays,
+    required this.textAllowsToConclude,
+    required this.textDoesNotSay,
+    required this.historicalContext,
+    required this.theologicalCore,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'passage': passage,
+      'centralTruth': centralTruth,
+      'textSays': textSays,
+      'textAllowsToConclude': textAllowsToConclude,
+      'textDoesNotSay': textDoesNotSay,
+      'historicalContext': historicalContext,
+      'theologicalCore': theologicalCore,
+    };
+  }
+
+  factory BiblicalCore.fromMap(Map<String, dynamic> map) {
+    return BiblicalCore(
+      passage: map['passage']?.toString() ?? '',
+      centralTruth: map['centralTruth']?.toString() ?? '',
+      textSays: safeStringList(map['textSays']),
+      textAllowsToConclude: safeStringList(map['textAllowsToConclude']),
+      textDoesNotSay: safeStringList(map['textDoesNotSay']),
+      historicalContext: safeStringList(map['historicalContext']),
+      theologicalCore: map['theologicalCore']?.toString() ?? '',
+    );
+  }
+}
+
 class LessonPlan {
   final int? id;
   final String title;
@@ -58,6 +102,9 @@ class LessonPlan {
   final bool supportsTeams;
   final List<MixedAgeStation> stations;
 
+  // Preparation extensions
+  final BiblicalCore? biblicalCore;
+
   LessonPlan({
     this.id,
     required this.title,
@@ -71,6 +118,7 @@ class LessonPlan {
     this.ageProfile,
     this.supportsTeams = true,
     this.stations = const [],
+    this.biblicalCore,
   });
 
   Map<String, dynamic> toMap() {
@@ -87,6 +135,7 @@ class LessonPlan {
       'ageProfile': ageProfile?.toMap(),
       'supportsTeams': supportsTeams,
       'stations': stations.map((s) => s.toMap()).toList(),
+      'biblicalCore': biblicalCore?.toMap(),
     };
   }
 
@@ -106,6 +155,7 @@ class LessonPlan {
       stations: map['stations'] is List 
           ? (map['stations'] as List).map((s) => MixedAgeStation.fromMap(s)).toList() 
           : [],
+      biblicalCore: (map['biblicalCore'] is Map) ? BiblicalCore.fromMap(Map<String, dynamic>.from(map['biblicalCore'] as Map)) : null,
     );
   }
 }

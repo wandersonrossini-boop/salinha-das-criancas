@@ -42,13 +42,13 @@ class GeminiService {
 
   String _getMethodologicalInstructions(ClassroomAgeProfile profile) {
     if (profile.isMixedAge) {
-      return "\nIMPORTANTE TURMA MISTA: Você deve gerar um núcleo compartilhado (Mesma passagem, mesmo versículo) mas separar a atividade principal em estações (stations) para diferentes faixas. A estação '4-6' deve ter conteúdo 100% sensorial, motor, com texturas e gestos corporais, evitando abstração. As estações '7-8' e '9-11' devem ter conteúdo reflexivo, dilemas éticos, estudos de caso e missões. A flag 'supportsTeams' deve ser false se houver conteúdo de acolhimento sensorial.";
+      return "\nIMPORTANTE TURMA MISTA: Você deve gerar um núcleo compartilhado (Mesma passagem, mesmo versículo) mas separar a atividade principal em estações (stations) para diferentes faixas. A estação '4-6' deve ter conteúdo 100% sensorial, motor, com texturas e gestos corporais, evitando abstração. As estações '7-8' e '9-11' devem ter conteúdo reflexivo com base no núcleo compartilhado. A aplicação deve surgir somente depois da compreensão da Verdade Central e deve representar uma implicação legítima dela. Nunca transformar personagem bíblico em mero exemplo de 'seja como ele'. A flag 'supportsTeams' deve ser false se houver conteúdo de acolhimento sensorial.";
     } else if (profile.minAge < 4) {
       return "\nIMPORTANTE: Como é para Berçário/Maternal (0-3 anos), o plano deve focar 100% em estímulos visuais, sensoriais e músicas! Troque perguntas complexas por dicas de como fazer sons ou toques, e a dinâmica deve ser muito física/sensorial. Manter a versão curta, altamente sensorial, com onomatopéias (ex: 'pata-pata') e instruções de gestos corporais em CAIXA ALTA (ex: [BATER PALMAS]). stations não se aplicam tanto, mas retorne no formato JSON exigido.";
     } else if (profile.minAge >= 7) {
-      return "\nIMPORTANTE: Como é para 7-11 anos (Primários/Juniores), a História NÃO pode ser reduzida a tópicos curtos. Gere uma NARRATIVA COMPLETA de 4 a 5 blocos, contendo obrigatoriamente:\n1. Contexto histórico.\n2. Conflito/tensão.\n3. O milagre.\n4. Reflexão teológica. Inclua dilemas éticos, resolução de casos. supportsTeams deve ser true se couber jogo competitivo.";
+      return "\nIMPORTANTE: Como é para 7-11 anos (Primários/Juniores), a História NÃO pode ser reduzida a tópicos curtos. Gere uma NARRATIVA COMPLETA de 4 a 5 blocos, contendo obrigatoriamente:\n1. Contexto histórico.\n2. Conflito/tensão.\n3. O milagre.\n4. Reflexão teológica. A aplicação deve surgir somente depois da compreensão da Verdade Central e deve representar uma implicação legítima dela. Nunca transformar personagem bíblico em mero exemplo de 'seja como ele'. supportsTeams deve ser true se couber jogo competitivo.";
     }
-    return "\nIMPORTANTE: Como é para 4-7 anos, equilibre atividades físicas/sensoriais simples com início de compreensão moral. Use dinâmicas de movimento.";
+    return "\nIMPORTANTE: Como é para 4-7 anos, equilibre atividades físicas/sensoriais simples com início de compreensão bíblica. A aplicação deve surgir somente depois da compreensão da Verdade Central e deve representar uma implicação legítima dela. Nunca transformar personagem bíblico em mero exemplo de 'seja como ele'. Use dinâmicas de movimento.";
   }
 
   Future<LessonPlan> generateLessonPlan(String theme, String ageGroup, String duration) async {
@@ -95,6 +95,35 @@ class GeminiService {
 
     final prompt = '''
 Você é um especialista em ministério infantil cristão. 
+
+HIERARQUIA OBRIGATÓRIA DA GERAÇÃO:
+Seu processo de geração de cada plano de aula DEVE seguir estritamente esta ordem de prioridade lógica:
+1. TEXTO BÍBLICO (leitura exata da passagem).
+2. BIBLICAL CORE (exegese e estruturação hermenêutica).
+3. VERDADE CENTRAL X (definição da verdade central teológica única).
+4. ADAPTAÇÃO PEDAGÓGICA (ajuste de linguagem por faixa etária).
+5. CONTEÚDO DA AULA (criação dos cartões de estações, dinâmicas, orações, história, etc., derivados de X).
+
+Você NÃO deve partir primeiro de dinâmica, moral, comportamento desejado pelas crianças, jogo ou faixa etária. Primeiro deve compreender e estruturar a passagem bíblica.
+
+PRINCÍPIO GOVERNANTE:
+Simplificar a linguagem, nunca substituir a mensagem do texto.
+A 'centralTruth' é única para toda a aula. As faixas etárias nas estações ('stations') podem alterar o vocabulário, detalhes de execução, exemplos práticos e forma de interação, mas NÃO podem alterar a 'centralTruth', o significado teológico da passagem, as ações atribuídas aos personagens ou os limites definidos em 'textDoesNotSay'.
+
+PROTEÇÕES NARRATIVAS:
+A história e os tópicos da história ('storyTopics') não podem inventar pensamentos dos personagens, emoções, diálogos ou detalhes de cenário que estejam ausentes do texto bíblico original. Mantenha fidelidade factual e textual estrita.
+
+PROTEÇÕES CONTRA MORALISMO:
+A aplicação prática nas estações, história ou atividades deve surgir somente depois da compreensão da Verdade Central e deve representar uma implicação legítima dela. Nunca transforme um personagem bíblico em um mero exemplo comportamental ('seja bom como fulano', 'faça como ciclano').
+
+CONEXÃO CANÔNICA / CRISTOLÓGICA (SE HOUVER):
+Não force conexões artificiais com Cristo em todas as aulas. Se houver uma conexão canônica legítima, apresente-a na estrutura:
+TEXTO original -> DESENVOLVIMENTO CANÔNICO -> CONCLUSÃO em Cristo.
+
+FREIO HERMENÊUTICO E REVISÃO INTERNA OBRIGATÓRIA:
+Antes de produzir e devolver o JSON final, você DEVE revisar internamente todos os campos gerados ('objective', 'storyTopics', 'questions', 'stations', 'dynamicActivity', 'prayer') contra os limites de ('centralTruth', 'textSays', 'textAllowsToConclude', 'textDoesNotSay'). 
+Se houver qualquer violação ou se alguma ideia vetada em 'textDoesNotSay' reaparecer em qualquer parte da aula (como moralismos comportamentais ou técnicas de silêncio acústico), você DEVE corrigir e reescrever o conteúdo antes de retornar o JSON final.
+
 \$countInstruction
 Tema\${isIndividual ? '' : ' da Série'}: \$theme
 Faixa Etária: \$ageGroup
@@ -110,6 +139,26 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
     "dynamicActivity": "resumo geral da atividade",
     "prayer": "dicas e tópicos em formato de bullet points para guiar a oração",
     "supportsTeams": true,
+    "biblicalCore": {
+      "passage": "referência bíblica exata (ex: 1 Samuel 3:1-21)",
+      "centralTruth": "a verdade teológica central e única da passagem",
+      "textSays": [
+        "fato literal 1 afirmado no texto",
+        "fato literal 2 afirmado no texto"
+      ],
+      "textAllowsToConclude": [
+        "conclusão teológica/prática legítima derivada diretamente do texto",
+        "outra conclusão legítima"
+      ],
+      "textDoesNotSay": [
+        "ideia errônea ou moralista que o texto NÃO diz ou não apoia",
+        "outra extrapolação a ser evitada"
+      ],
+      "historicalContext": [
+        "detalhe relevante do contexto histórico/cultural da passagem"
+      ],
+      "theologicalCore": "explicação do coração teológico da passagem para o estudo do professor"
+    },
     "stations": [
       {
         "ageBand": "4-6",
@@ -218,6 +267,7 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
               stations: data['stations'] is List 
                   ? (data['stations'] as List).map((s) => MixedAgeStation.fromMap(s as Map<String, dynamic>)).toList() 
                   : [],
+              biblicalCore: data['biblicalCore'] != null ? BiblicalCore.fromMap(data['biblicalCore'] as Map<String, dynamic>) : null,
             ));
           } catch (e) {
             errors.add('Índice \$i: Erro ao instanciar LessonPlan (\$e).');

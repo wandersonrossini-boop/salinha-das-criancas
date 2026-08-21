@@ -101,5 +101,81 @@ void main() {
       final station7_8 = findStationByAgeBand(plan.stations, '7-8');
       expect(station7_8, isNull);
     });
+
+    test('Retrocompatibilidade: Aula antiga sem biblicalCore', () {
+      final jsonObject = {
+        'title': 'Aula Antiga',
+        'keyVerse': 'Gênesis 1:1',
+      };
+      final plan = LessonPlan.fromMap(jsonObject);
+      expect(plan.title, 'Aula Antiga');
+      expect(plan.biblicalCore, isNull);
+    });
+
+    test('Round-trip com fidelidade de dados', () {
+      final jsonObject = {
+        'title': '1 Samuel 3',
+        'keyVerse': '1 Samuel 3:9',
+        'biblicalCore': {
+          'passage': '1 Samuel 3:1-21',
+          'centralTruth': 'Deus rompe a escassez de sua Palavra',
+          'textSays': ['Deus chamou Samuel', 'Samuel servia a Eli'],
+          'textAllowsToConclude': ['Ouvir exige prontidão'],
+          'textDoesNotSay': ['Samuel era perfeito'],
+          'historicalContext': ['Siló era o centro'],
+          'theologicalCore': 'Transição teocrática',
+        }
+      };
+
+      final plan1 = LessonPlan.fromMap(jsonObject);
+      expect(plan1.biblicalCore, isNotNull);
+      expect(plan1.biblicalCore!.centralTruth, 'Deus rompe a escassez de sua Palavra');
+      expect(plan1.biblicalCore!.textSays, ['Deus chamou Samuel', 'Samuel servia a Eli']);
+
+      final mapped = plan1.toMap();
+      final plan2 = LessonPlan.fromMap(mapped);
+      expect(plan2.biblicalCore, isNotNull);
+      expect(plan2.biblicalCore!.centralTruth, 'Deus rompe a escassez de sua Palavra');
+      expect(plan2.biblicalCore!.textSays, ['Deus chamou Samuel', 'Samuel servia a Eli']);
+      expect(plan2.biblicalCore!.textDoesNotSay, ['Samuel era perfeito']);
+    });
+
+    test('Resiliência de tipo na raiz de biblicalCore', () {
+      final payloadString = {
+        'title': 'Aula Invalida 1',
+        'biblicalCore': 'invalido'
+      };
+      final payloadInt = {
+        'title': 'Aula Invalida 2',
+        'biblicalCore': 123
+      };
+      final payloadList = {
+        'title': 'Aula Invalida 3',
+        'biblicalCore': []
+      };
+
+      expect(LessonPlan.fromMap(payloadString).biblicalCore, isNull);
+      expect(LessonPlan.fromMap(payloadInt).biblicalCore, isNull);
+      expect(LessonPlan.fromMap(payloadList).biblicalCore, isNull);
+    });
+
+    test('Resiliência de listas internas corrompidas', () {
+      final jsonObject = {
+        'title': 'Aula com Listas Ruins',
+        'biblicalCore': {
+          'passage': '1 Samuel 3',
+          'centralTruth': 'Verdade',
+          'textSays': null,
+          'textAllowsToConclude': 'nao-uma-lista',
+          'textDoesNotSay': [123, null, 'Samuel era imperfeito', true],
+        }
+      };
+
+      final plan = LessonPlan.fromMap(jsonObject);
+      expect(plan.biblicalCore, isNotNull);
+      expect(plan.biblicalCore!.textSays, isEmpty);
+      expect(plan.biblicalCore!.textAllowsToConclude, isEmpty);
+      expect(plan.biblicalCore!.textDoesNotSay, ['123', 'Samuel era imperfeito', 'true']);
+    });
   });
 }
