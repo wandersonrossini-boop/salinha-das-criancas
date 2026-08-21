@@ -11,7 +11,8 @@ import '../../games/screens/quiz_screen.dart';
 import '../../roulette/screens/roulette_screen.dart';
 import '../../students/screens/chamada_screen.dart';
 import '../../teams/screens/teams_screen.dart';
-
+import '../../../core/utils/safe_converters.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 class ClassModeScreen extends StatefulWidget {
   const ClassModeScreen({super.key});
 
@@ -27,7 +28,19 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
   List<Map<String, dynamic>> _quizQuestions = [];
 
   List<Map<String, dynamic>> _etapas = [];
+  String _selectedAgeBand = '4-6';
+  int _currentStepIndex = 0;
 
+  int _presentCount = 0;
+  bool _isChamadaPendente = true;
+
+  MixedAgeStation? findStationByAgeBand(List stations, String ageBand) {
+    final matches = stations.where((item) => item.ageBand == ageBand).toList();
+    if (matches.length > 1) {
+      print('Aviso: Estação duplicada para a faixa $ageBand, utilizando a primeira ocorrência.');
+    }
+    return matches.firstOrNull;
+  }
   @override
   void initState() {
     super.initState();
@@ -43,6 +56,12 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
       // Fallback
       _buildEtapasFallback();
     }
+
+    final prefs = await SharedPreferences.getInstance();
+    final presentIds = prefs.getStringList('present_student_ids') ?? [];
+    _presentCount = presentIds.length;
+    _isChamadaPendente = presentIds.isEmpty;
+
     setState(() {
       _isLoading = false;
     });
@@ -80,7 +99,8 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
       },
       {
         'title': '🛠️ Atividade / Dinâmica',
-        'content': plan.dynamicActivity,
+        'content': plan.stations.isNotEmpty ? '' : plan.dynamicActivity,
+        'isDynamic': plan.stations.isNotEmpty,
         'color': AppColors.roxoAcolhedor,
       },
       {
@@ -505,7 +525,17 @@ Boa semana a todas as famílias! 🙏
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Modo Ministrar', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Modo Ministrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            if (!_isLoading && _etapas.isNotEmpty)
+              Text(
+                'Progresso: Etapa ${_currentStepIndex + 1} de ${_etapas.length}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+              ),
+          ],
+        ),
         backgroundColor: AppColors.background,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -514,6 +544,46 @@ Boa semana a todas as famílias! 🙏
           onPressed: () => Navigator.pop(context),
         ) : null,
         actions: [
+          if (!_isLoading)
+            GestureDetector(
+              onTap: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
+                _loadLatestPlan();
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _isChamadaPendente ? AppColors.amareloSol.withOpacity(0.12) : AppColors.verdePasto.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _isChamadaPendente ? AppColors.amareloSol : AppColors.verdePasto,
+                    width: 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isChamadaPendente ? Icons.warning_amber_rounded : Icons.check_circle_outline_rounded,
+                      size: 14,
+                      color: _isChamadaPendente ? AppColors.amareloSol : AppColors.verdePasto,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isChamadaPendente ? 'Chamada Pendente' : '$_presentCount Presentes',
+                      style: TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _isChamadaPendente ? AppColors.amareloSol : AppColors.verdePasto,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: AppColors.alerta),
             tooltip: 'Gerar PDF',
@@ -538,7 +608,8 @@ Boa semana a todas as famílias! 🙏
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 3, // Reduzido de 6
                 child: ExpansionTile(
-                  initiallyExpanded: index == 0,
+                  key: Key('etapa_${index}_${_currentStepIndex == index}'),
+                  initiallyExpanded: index == _currentStepIndex,
                   iconColor: etapa['color'],
                   collapsedIconColor: etapa['color'],
                   title: Text(
@@ -546,60 +617,111 @@ Boa semana a todas as famílias! 🙏
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: etapa['color']), // Reduzido de 26
                   ),
                   children: [
+                    if (etapa['isDynamic'] == true && _currentPlan != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: DropdownButton<String>(
+                          value: _selectedAgeBand,
+                          isExpanded: true,
+                          items: _currentPlan!.stations.map((s) => s.ageBand).toSet().map((band) {
+                            return DropdownMenuItem(value: band, child: Text('Faixa Etária: $band'));
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedAgeBand = val);
+                          },
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.all(16.0), // Reduzido de 24
-                      child: Text(
-                        etapa['content'],
-                        style: const TextStyle(fontSize: 15, height: 1.4, color: AppColors.textPrimary), // Reduzido de 24 / 1.6
-                        textAlign: TextAlign.left,
-                      ),
+                      child: Builder(builder: (context) {
+                        if (etapa['isDynamic'] == true && _currentPlan != null) {
+                          final station = findStationByAgeBand(_currentPlan!.stations, _selectedAgeBand);
+                          if (station == null) {
+                            return const Text('Adaptação ainda não disponível para esta faixa.', style: TextStyle(color: AppColors.textPrimary));
+                          }
+                          return Text(
+                            'Duração: ${station.duration}\nMateriais: ${station.materials.join(', ')}\n\nPreparação:\n${station.preparation}\n\nDescrição:\n${station.description}\n\nPassos:\n${station.executionSteps.join('\n')}',
+                            style: const TextStyle(fontSize: 15, height: 1.4, color: AppColors.textPrimary),
+                          );
+                        }
+                        if (etapa['title'].contains('Quiz')) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                etapa['content'],
+                                style: const TextStyle(fontSize: 15, height: 1.4, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen()));
+                                  },
+                                  icon: const Icon(Icons.quiz_rounded),
+                                  label: const Text('Jogar Quiz com a Turma', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.laranjaCriativo,
+                                    side: const BorderSide(color: AppColors.laranjaCriativo),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return Text(
+                          etapa['content'],
+                          style: const TextStyle(fontSize: 15, height: 1.4, color: AppColors.textPrimary), // Reduzido de 24 / 1.6
+                          textAlign: TextAlign.left,
+                        );
+                      }),
                     ),
+                    if (index == _currentStepIndex)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (index < _etapas.length - 1) {
+                                setState(() {
+                                  _currentStepIndex++;
+                                });
+                              } else {
+                                Navigator.pop(context);
+                              }
+                            },
+                            icon: Icon(
+                              index < _etapas.length - 1 ? Icons.arrow_forward_rounded : Icons.check_circle_rounded,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              index < _etapas.length - 1 ? 'Próxima Etapa' : 'Concluir Aula',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: etapa['color'],
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               );
             },
           ),
-      bottomNavigationBar: _isLoading ? null : SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen()));
-                  },
-                  icon: const Icon(Icons.how_to_reg_rounded, size: 20),
-                  label: const Text('Fazer Chamada', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.amareloSol,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TeamsScreen()));
-                  },
-                  icon: const Icon(Icons.group_add_rounded, size: 20),
-                  label: const Text('Criar Equipes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.azulCeleste,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

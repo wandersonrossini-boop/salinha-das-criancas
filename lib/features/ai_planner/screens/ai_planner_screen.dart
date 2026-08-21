@@ -19,10 +19,10 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
   final _temaController = TextEditingController();
 
   String _selectedIdade = '4-7 anos';
-  final List<String> _idades = ['0-4 anos', '4-7 anos', '7-11 anos'];
+  final List<String> _idades = ['0-4 anos', '4-7 anos', '7-11 anos', 'Turma Mista (4 a 11 anos)'];
   
-  String _selectedTempo = '45 min';
-  final List<String> _tempos = ['30 min', '45 min', '60 min', '90 min'];
+  String _selectedAulas = '4';
+  final List<String> _aulas = ['1', '2', '3', '4', '5'];
   
   bool _isLoading = false;
   final GeminiService _geminiService = GeminiService();
@@ -100,19 +100,22 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final plan = await _geminiService.generateLessonPlan(
+      final int count = int.tryParse(_selectedAulas) ?? 4;
+      final plans = await _geminiService.generateMonthlySeries(
         _temaController.text,
         _selectedIdade,
-        _selectedTempo,
+        count,
       );
         
-      await DatabaseHelper.instance.insertLessonPlan(plan);
+      for (var plan in plans) {
+        await DatabaseHelper.instance.insertLessonPlan(plan);
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aula gerada e salva com sucesso! 🎉')),
+          SnackBar(content: Text('Série de $count aulas gerada com sucesso! 🎉')),
         );
-        Navigator.pop(context);
+        Navigator.pop(context); // Go back after generation (assuming pushed or just remain)
       }
     } catch (e) {
       if (mounted) {
@@ -130,7 +133,7 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Assistente de IA', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A))),
+        title: const Text('Planejar Série Mensal', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A))),
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -162,12 +165,12 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'Prepare sua aula em segundos!',
+                            'Planejador de Séries Mensais!',
                             style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'A inteligência artificial vai estruturar o plano ideal de quebra-gelo, história, quiz e dinâmica para a sua salinha.',
+                            'A inteligência artificial vai estruturar uma série completa de aulas com base no tema escolhido para a sua turma.',
                             style: TextStyle(fontFamily: 'Nunito', color: Color(0xFF1E40AF), fontSize: 12.5, height: 1.4),
                           ),
                         ],
@@ -245,10 +248,10 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedTempo,
+                            value: _selectedAulas,
                             style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: Color(0xFF1E293B)),
                             decoration: InputDecoration(
-                              labelText: 'Tempo de Aula',
+                              labelText: 'Qtd de Aulas',
                               labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
                               filled: true,
                               fillColor: Colors.grey.shade50,
@@ -257,16 +260,16 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
                             ),
-                            items: _tempos.map((String value) {
+                            items: _aulas.map((String value) {
                               return DropdownMenuItem<String>(
                                 value: value,
-                                child: Text(value),
+                                child: Text('$value ${value == '1' ? 'aula' : 'aulas'}'),
                               );
                             }).toList(),
                             onChanged: (newValue) {
                               if (newValue != null) {
                                 setState(() {
-                                  _selectedTempo = newValue;
+                                  _selectedAulas = newValue;
                                 });
                               }
                             },
