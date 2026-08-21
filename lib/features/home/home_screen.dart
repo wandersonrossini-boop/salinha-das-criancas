@@ -7,6 +7,7 @@ import '../games/screens/games_menu_screen.dart';
 import '../games/screens/cronometro_screen.dart';
 import '../ai_planner/screens/ai_planner_screen.dart';
 import '../students/screens/chamada_screen.dart';
+import '../teacher_preparation/screens/teacher_preparation_screen.dart';
 import 'admin_screen.dart';
 import 'widgets/hero_action_card.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -994,7 +995,21 @@ class _DashboardContentState extends State<DashboardContent> {
                     MaterialPageRoute(builder: (_) => const ChamadaScreen()),
                   );
                 } else {
-                  widget.onSwitchTab(1); // Mudar aba para Modo Aula (tab index 1)
+                  if (latestPlan != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TeacherPreparationScreen(
+                          plan: latestPlan,
+                          onStartClass: () {
+                            widget.onSwitchTab(1); // Mudar aba para Modo Aula (tab index 1)
+                          },
+                        ),
+                      ),
+                    );
+                  } else {
+                    widget.onSwitchTab(1);
+                  }
                 }
               },
             );
