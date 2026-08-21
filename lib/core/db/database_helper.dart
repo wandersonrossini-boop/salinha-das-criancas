@@ -119,6 +119,16 @@ class DatabaseHelper {
     return snapshot.docs.map((doc) => LessonPlan.fromMap(doc.data())).toList();
   }
 
+  Future<void> updateLessonPlan(LessonPlan plan) async {
+    if (plan.id == null) {
+      throw ArgumentError('O ID da lição não pode ser nulo para atualizações.');
+    }
+    await FirebaseFirestore.instance
+        .collection('lesson_plans')
+        .doc(plan.id.toString())
+        .update(plan.toMap());
+  }
+
   // --- Operações de Histórico de Chamada ---
   Future<int> insertAttendance(String date, List<int> presentIds) async {
     final id = DateTime.now().millisecondsSinceEpoch;

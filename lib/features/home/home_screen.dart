@@ -34,6 +34,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _classModeRevision = 0;
   late Future<List<LessonPlan>> _lessonPlansFuture;
 
   @override
@@ -61,10 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
             onSwitchTab: (index) {
               setState(() {
                 _currentIndex = index;
+                if (index == 1) {
+                  _classModeRevision++;
+                }
               });
             },
           ), // 0: Início
-          const ClassModeScreen(),           // 1: Aulas
+          ClassModeScreen(key: ValueKey(_classModeRevision)),           // 1: Aulas
           const GamesMenuScreen(),           // 2: Atividades / Jogos
           const AiPlannerScreen(),           // 3: Crianças / IA
           const AdminScreen(),               // 4: Configurações / Admin
