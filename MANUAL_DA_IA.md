@@ -37,9 +37,8 @@ Sempre priorize a stack e os pacotes atuais antes de sugerir novas dependências
 ## 4. Regras Rígidas para Modificação (CRÍTICO)
 
 1. **A API do Gemini (Google AI):**
-   - O modelo oficial suportado e validado em produção para a chave deste projeto é o **`gemini-1.5-flash`**.
-   - A família `gemini-3.6` NÃO DEVE ser utilizada, pois foi descontinuada/bloqueada para a chave primária de acesso ou resulta em erro 400.
-   - O `gemini_service.dart` deve sempre ler a `apiKey` via `SharedPreferences`. Nunca faça uma requisição com a chave vazia ou hardcoded.
+    - O modelo oficial suportado e validado em produção para a chave deste projeto é o **`gemini-3.6-flash`**.
+    - O `gemini_service.dart` deve sempre ler a `apiKey` via `SharedPreferences` ou Firestore. Nunca faça uma requisição com a chave vazia ou hardcoded.
 
 2. **Web Release e Compatibilidade:**
    - Este app roda primariamente em navegadores (Flutter Web). Qualquer pacote novo deve ter suporte nativo ao ambiente Web.
