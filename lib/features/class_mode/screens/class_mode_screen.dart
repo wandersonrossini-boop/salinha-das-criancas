@@ -657,7 +657,7 @@ Boa semana a todas as famílias! 🙏
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
                                   onPressed: () {
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizScreen()));
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => QuizScreen(plan: _currentPlan)));
                                   },
                                   icon: const Icon(Icons.quiz_rounded),
                                   label: const Text('Jogar Quiz com a Turma', style: TextStyle(fontWeight: FontWeight.bold)),
