@@ -1,3 +1,47 @@
+import 'dart:convert';
+import 'classroom_age_profile.dart';
+import '../../../core/utils/safe_converters.dart';
+
+class MixedAgeStation {
+  final String ageBand;
+  final String duration;
+  final List<String> materials;
+  final String preparation;
+  final List<String> executionSteps;
+  final String description;
+
+  MixedAgeStation({
+    required this.ageBand,
+    required this.duration,
+    required this.materials,
+    required this.preparation,
+    required this.executionSteps,
+    required this.description,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'ageBand': ageBand,
+      'duration': duration,
+      'materials': materials,
+      'preparation': preparation,
+      'executionSteps': executionSteps,
+      'description': description,
+    };
+  }
+
+  factory MixedAgeStation.fromMap(Map<String, dynamic> map) {
+    return MixedAgeStation(
+      ageBand: map['ageBand']?.toString() ?? '',
+      duration: map['duration']?.toString() ?? '',
+      materials: safeStringList(map['materials']),
+      preparation: map['preparation']?.toString() ?? '',
+      executionSteps: safeStringList(map['executionSteps']),
+      description: map['description']?.toString() ?? '',
+    );
+  }
+}
+
 class LessonPlan {
   final int? id;
   final String title;
@@ -8,6 +52,11 @@ class LessonPlan {
   final String questions;
   final String dynamicActivity;
   final String prayer;
+  
+  // Mixed Age extensions
+  final ClassroomAgeProfile? ageProfile;
+  final bool supportsTeams;
+  final List<MixedAgeStation> stations;
 
   LessonPlan({
     this.id,
@@ -19,6 +68,9 @@ class LessonPlan {
     required this.questions,
     required this.dynamicActivity,
     required this.prayer,
+    this.ageProfile,
+    this.supportsTeams = true,
+    this.stations = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -32,20 +84,28 @@ class LessonPlan {
       'questions': questions,
       'dynamicActivity': dynamicActivity,
       'prayer': prayer,
+      'ageProfile': ageProfile?.toMap(),
+      'supportsTeams': supportsTeams,
+      'stations': stations.map((s) => s.toMap()).toList(),
     };
   }
 
   factory LessonPlan.fromMap(Map<String, dynamic> map) {
     return LessonPlan(
       id: map['id'],
-      title: map['title'],
-      ageGroup: map['ageGroup'],
-      objective: map['objective'],
-      keyVerse: map['keyVerse'],
-      storyTopics: map['storyTopics'],
-      questions: map['questions'],
-      dynamicActivity: map['dynamicActivity'],
-      prayer: map['prayer'],
+      title: map['title']?.toString() ?? 'Aula Sem Título',
+      ageGroup: map['ageGroup']?.toString() ?? '',
+      objective: map['objective']?.toString() ?? '',
+      keyVerse: map['keyVerse']?.toString() ?? '',
+      storyTopics: map['storyTopics']?.toString() ?? '',
+      questions: map['questions']?.toString() ?? '',
+      dynamicActivity: map['dynamicActivity']?.toString() ?? '',
+      prayer: map['prayer']?.toString() ?? '',
+      ageProfile: map['ageProfile'] != null ? ClassroomAgeProfile.fromMap(map['ageProfile']) : null,
+      supportsTeams: safeBool(map['supportsTeams'], fallback: false),
+      stations: map['stations'] is List 
+          ? (map['stations'] as List).map((s) => MixedAgeStation.fromMap(s)).toList() 
+          : [],
     );
   }
 }
