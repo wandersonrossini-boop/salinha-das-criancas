@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/student.dart';
 import '../../../core/db/database_helper.dart';
@@ -31,12 +33,28 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
   }
 
   Future<void> _loadStudents() async {
-    final students = await DatabaseHelper.instance.fetchAllStudents();
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('user_role');
+    final turmaId = role == 'professor' ? prefs.getString('turmaId') : null;
+
+    final students = await DatabaseHelper.instance.fetchAllStudents(turmaId);
+
+    final date = DateTime.now().toIso8601String().split('T')[0];
+    final savedDate = prefs.getString('attendance_date');
+    List<String> presentIds = [];
+    if (savedDate == date) {
+      presentIds = prefs.getStringList('present_student_ids') ?? [];
+    }
+
     setState(() {
       _students = students;
       _isLoading = false;
       for (var student in students) {
-        _presenceState[student.id!] = 0;
+        if (presentIds.contains(student.id.toString())) {
+          _presenceState[student.id!] = 1; // Restore presence if it was checked
+        } else {
+          _presenceState[student.id!] = 0;
+        }
       }
     });
   }
@@ -53,133 +71,291 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
     final nameController = TextEditingController(text: student?.name ?? '');
     final ageController = TextEditingController(text: student?.age.toString() ?? '');
     final alertController = TextEditingController(text: student?.alertMessage ?? '');
+    String? photoUrl = student?.photoUrl;
 
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 10,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
-                    style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F172A)),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nameController,
-                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                    decoration: InputDecoration(
-                      labelText: 'Nome do Aluno',
-                      labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                      hintText: 'Digite o nome completo',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: ageController,
-                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Idade',
-                      labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                      hintText: 'Ex: 6',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: alertController,
-                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Observações',
-                      labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                      hintText: 'Alergias, restrições ou informações importantes.',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2)),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (student != null)
-                        TextButton(
-                          onPressed: () async {
-                            await DatabaseHelper.instance.deleteStudent(student.id!);
-                            if (context.mounted) Navigator.pop(context);
-                            _loadStudents();
-                          },
-                          child: const Text('Excluir', style: TextStyle(fontFamily: 'Fredoka', color: Colors.red, fontWeight: FontWeight.bold)),
-                        ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancelar', style: TextStyle(fontFamily: 'Fredoka', color: Color(0xFF64748B))),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final name = nameController.text.trim();
-                          final age = int.tryParse(ageController.text.trim()) ?? 0;
-                          final alert = alertController.text.trim();
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Re-render dialog on text changes to update Save button contrast/status dynamically
+            nameController.addListener(() {
+              if (context.mounted) setDialogState(() {});
+            });
+            ageController.addListener(() {
+              if (context.mounted) setDialogState(() {});
+            });
 
-                          if (name.isNotEmpty) {
-                            final newStudent = Student(
-                              id: student?.id,
-                              name: name,
-                              age: age,
-                              alertMessage: alert.isEmpty ? null : alert,
-                              points: student?.points ?? 0,
-                            );
+            final name = nameController.text.trim();
+            final age = int.tryParse(ageController.text.trim()) ?? 0;
+            final isFormValid = name.isNotEmpty && age > 0;
 
-                            if (student == null) {
-                              await DatabaseHelper.instance.insertStudent(newStudent);
-                            } else {
-                              await DatabaseHelper.instance.updateStudent(newStudent);
-                            }
-                            
-                            if (context.mounted) Navigator.pop(context);
-                            _loadStudents();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.azulCeleste,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
+            Future<void> _pickImage(ImageSource source) async {
+              try {
+                final picker = ImagePicker();
+                final pickedFile = await picker.pickImage(
+                  source: source,
+                  maxWidth: 300,
+                  maxHeight: 300,
+                  imageQuality: 70,
+                );
+                if (pickedFile != null) {
+                  final bytes = await pickedFile.readAsBytes();
+                  setDialogState(() {
+                    photoUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                  });
+                }
+              } catch (e) {
+                debugPrint('Erro ao selecionar imagem: $e');
+              }
+            }
+
+            ImageProvider _getAvatarImage() {
+              if (photoUrl == null || photoUrl!.trim().isEmpty) {
+                return const AssetImage('assets/images/maspot/poses/idle.png'); // fallback handled below
+              }
+              if (photoUrl!.startsWith('data:image')) {
+                try {
+                  final base64String = photoUrl!.split(',').last;
+                  return MemoryImage(base64Decode(base64String));
+                } catch (_) {
+                  return const AssetImage('assets/images/mascot/poses/idle.png');
+                }
+              }
+              return NetworkImage(ImageHelper.getProxiedImageUrl(photoUrl));
+            }
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              elevation: 10,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
+                          style: const TextStyle(
+                            fontFamily: 'Fredoka',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
-                        child: const Text('Salvar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+
+                        // Seletor de Imagem e Avatar
+                        Center(
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 48,
+                                backgroundColor: Colors.grey.shade100,
+                                backgroundImage: photoUrl == null || photoUrl!.isEmpty
+                                    ? const AssetImage('assets/images/mascot/poses/idle.png') as ImageProvider
+                                    : _getAvatarImage(),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: () => _pickImage(ImageSource.camera),
+                                    icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                                    label: const Text(
+                                      'Tirar Foto',
+                                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 13),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.azulCeleste,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    onPressed: () => _pickImage(ImageSource.gallery),
+                                    icon: const Icon(Icons.photo_library_outlined, size: 16),
+                                    label: const Text(
+                                      'Galeria',
+                                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 13),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.azulCeleste,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: nameController,
+                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
+                          decoration: InputDecoration(
+                            labelText: 'Nome do Aluno',
+                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
+                            hintText: 'Digite o nome completo',
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: ageController,
+                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Idade',
+                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
+                            hintText: 'Ex: 6',
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextField(
+                          controller: alertController,
+                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Alergias / Cuidados Especiais',
+                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
+                            hintText: 'Digite restrições alimentares, alergias ou cuidados importantes.',
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (student != null)
+                              TextButton(
+                                onPressed: () async {
+                                  await DatabaseHelper.instance.deleteStudent(student.id!);
+                                  if (context.mounted) Navigator.pop(context);
+                                  _loadStudents();
+                                },
+                                child: const Text(
+                                  'Excluir',
+                                  style: TextStyle(
+                                    fontFamily: 'Fredoka',
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text(
+                                'Cancelar',
+                                style: TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: isFormValid
+                                  ? () async {
+                                      final alert = alertController.text.trim();
+                                      final newStudent = Student(
+                                        id: student?.id,
+                                        name: name,
+                                        age: age,
+                                        alertMessage: alert.isEmpty ? null : alert,
+                                        points: student?.points ?? 0,
+                                        photoUrl: photoUrl,
+                                        avatarPath: student?.avatarPath,
+                                        turma: student?.turma,
+                                        teamId: student?.teamId,
+                                        birthDate: student?.birthDate,
+                                      );
+
+                                      if (student == null) {
+                                        await DatabaseHelper.instance.insertStudent(newStudent);
+                                      } else {
+                                        await DatabaseHelper.instance.updateStudent(newStudent);
+                                      }
+
+                                      if (context.mounted) Navigator.pop(context);
+                                      _loadStudents();
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isFormValid ? AppColors.azulCeleste : Colors.grey.shade300,
+                                foregroundColor: isFormValid ? Colors.white : Colors.grey.shade500,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Salvar',
+                                style: TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -279,6 +455,22 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
     );
   }
 
+  ImageProvider _getStudentImage(Student student) {
+    final photoUrl = student.photoUrl;
+    if (photoUrl == null || photoUrl.isEmpty) {
+      return const AssetImage('assets/images/mascot/poses/idle.png');
+    }
+    if (photoUrl.startsWith('data:image')) {
+      try {
+        final base64String = photoUrl.split(',').last;
+        return MemoryImage(base64Decode(base64String));
+      } catch (_) {
+        return const AssetImage('assets/images/mascot/poses/idle.png');
+      }
+    }
+    return NetworkImage(ImageHelper.getProxiedImageUrl(photoUrl));
+  }
+
   Widget _buildGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -345,9 +537,7 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                         CircleAvatar(
                           radius: 28,
                           backgroundColor: Colors.transparent,
-                          backgroundImage: student.photoUrl != null && student.photoUrl!.isNotEmpty
-                              ? NetworkImage(ImageHelper.getProxiedImageUrl(student.photoUrl)) as ImageProvider
-                              : const AssetImage('assets/images/mascot/poses/idle.png') as ImageProvider,
+                          backgroundImage: _getStudentImage(student),
                         ),
                         if (student.alertMessage != null && student.alertMessage!.isNotEmpty)
                           Positioned(
@@ -407,6 +597,8 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                 .map((entry) => entry.key.toString())
                 .toList();
             await prefs.setStringList('present_student_ids', presentIds);
+            await prefs.setBool('attendance_completed', true);
+            await prefs.setString('attendance_date', DateTime.now().toIso8601String().split('T')[0]);
 
             final date = DateTime.now().toIso8601String().split('T')[0];
             final presentIntIds = _presenceState.entries

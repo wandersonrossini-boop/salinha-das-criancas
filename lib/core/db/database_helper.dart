@@ -32,12 +32,13 @@ class DatabaseHelper {
     return id;
   }
 
-  Future<List<Student>> fetchAllStudents() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('students')
-        .orderBy('name', descending: false)
-        .get();
-    return snapshot.docs.map((doc) => Student.fromMap(doc.data())).toList();
+  Future<List<Student>> fetchAllStudents([String? turmaId]) async {
+    Query query = FirebaseFirestore.instance.collection('students');
+    if (turmaId != null && turmaId.isNotEmpty) {
+      query = query.where('turma', isEqualTo: turmaId);
+    }
+    final snapshot = await query.orderBy('name', descending: false).get();
+    return snapshot.docs.map((doc) => Student.fromMap(doc.data() as Map<String, dynamic>)).toList();
   }
 
   Future<int> updateStudent(Student student) async {

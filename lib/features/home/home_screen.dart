@@ -8,6 +8,7 @@ import '../games/screens/cronometro_screen.dart';
 import '../ai_planner/screens/ai_planner_screen.dart';
 import '../students/screens/chamada_screen.dart';
 import 'admin_screen.dart';
+import 'widgets/hero_action_card.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,7 @@ import '../../core/design_system/elevation.dart';
 import '../../core/design_system/radius.dart';
 import '../../core/design_system/spacing.dart';
 import '../../core/components/image_helper.dart';
+import '../../core/theme/app_colors.dart';
 
 /// Tela Principal com Navegação Reativa e Dashboard Premium Fiel ao Estilo Apple
 class HomeScreen extends StatefulWidget {
@@ -31,15 +33,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  late Future<List<LessonPlan>> _lessonPlansFuture;
 
-  // Telas vinculadas a cada uma das 5 abas
-  final List<Widget> _screens = [
-    const DashboardContent(),          // 0: Início
-    const ClassModeScreen(),           // 1: Aulas
-    const GamesMenuScreen(),           // 2: Atividades / Jogos
-    const AiPlannerScreen(),           // 3: Crianças / IA
-    const AdminScreen(),               // 4: Configurações / Admin
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _lessonPlansFuture = DatabaseHelper.instance.fetchAllLessonPlans();
+  }
+
+  void refreshLessonPlans() {
+    setState(() {
+      _lessonPlansFuture = DatabaseHelper.instance.fetchAllLessonPlans();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +53,26 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: DsColors.background,
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          DashboardContent(
+            lessonPlansFuture: _lessonPlansFuture,
+            onRefresh: refreshLessonPlans,
+            onSwitchTab: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ), // 0: Início
+          const ClassModeScreen(),           // 1: Aulas
+          const GamesMenuScreen(),           // 2: Atividades / Jogos
+          const AiPlannerScreen(),           // 3: Crianças / IA
+          const AdminScreen(),               // 4: Configurações / Admin
+        ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  // --- BARRA DE NAVEGAÇÃO INFERIOR ESTILO IMAGEM 2 ---
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
@@ -137,8 +156,113 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // --- CONTEÚDO PRINCIPAL DA DASHBOARD (PREMIUM) ---
-class DashboardContent extends StatelessWidget {
-  const DashboardContent({super.key});
+class DashboardContent extends StatefulWidget {
+  final Future<List<LessonPlan>> lessonPlansFuture;
+  final VoidCallback onRefresh;
+  final ValueChanged<int> onSwitchTab;
+
+  const DashboardContent({
+    super.key,
+    required this.lessonPlansFuture,
+    required this.onRefresh,
+    required this.onSwitchTab,
+  });
+
+  @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent> {
+  Future<Map<String, dynamic>> _fetchMuraisData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final prayers = prefs.getStringList('prayer_requests') ?? [];
+
+    final students = await DatabaseHelper.instance.fetchAllStudents();
+    final presentIds = prefs.getStringList('present_student_ids') ?? [];
+    final allIds = students.map((e) => e.id.toString()).toSet();
+    final actualPresentIds = presentIds.where((id) => allIds.contains(id)).toSet();
+
+    // Absent students
+    final absents = students.where((s) => !actualPresentIds.contains(s.id.toString())).toList();
+
+    // Birthdays this week (or month)
+    final now = DateTime.now();
+    final currentMonthStr = now.month.toString().padLeft(2, '0');
+    final birthdays = students.where((s) {
+      if (s.birthDate == null || s.birthDate!.isEmpty) return false;
+      final parts = s.birthDate!.split('/');
+      if (parts.length >= 2) {
+        return parts[1] == currentMonthStr;
+      }
+      return false;
+    }).toList();
+
+    return {
+      'prayers': prayers,
+      'absents': absents,
+      'birthdays': birthdays,
+    };
+  }
+
+  void _showAddPrayerDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          width: 350,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Registrar Pedido de Oração 🙏', style: TextStyle(fontFamily: 'Fredoka', fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Digite o pedido de oração...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancelar', style: TextStyle(fontFamily: 'Fredoka', color: Color(0xFF64748B))),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final text = controller.text.trim();
+                      if (text.isNotEmpty) {
+                        final prefs = await SharedPreferences.getInstance();
+                        final list = prefs.getStringList('prayer_requests') ?? [];
+                        list.add(text);
+                        await prefs.setStringList('prayer_requests', list);
+                        if (mounted) setState(() {});
+                      }
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.azulCeleste,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Registrar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +290,7 @@ class DashboardContent extends StatelessWidget {
   Widget _buildDashboardBody(BuildContext context, String userName, String fotoUrl) {
     return Stack(
       children: [
-        // 1. Formas Orgânicas Pastel de Fundo com Blur (Reduzido em opacidade de 0.55/0.7 para 0.2/0.25 para não brigar com conteúdo)
+        // 1. Formas Orgânicas Pastel de Fundo com Blur
         _buildPastelBackground(),
 
         SingleChildScrollView(
@@ -182,8 +306,8 @@ class DashboardContent extends StatelessWidget {
               _buildWelcomeHeroCard(userName),
               const SizedBox(height: 16),
 
-              // Card "Hoje na Aula" (Hero principal)
-              _buildTodayClassCard(context),
+              // HeroActionCard Unificado (Hoje na Aula + Versículo + Ação)
+              _buildHeroActionCard(context),
               const SizedBox(height: 16),
 
               // Grid de 2 Colunas: Turma de Hoje e Próxima Atividade
@@ -197,8 +321,243 @@ class DashboardContent extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              _buildVerseCard(),
+              const SizedBox(height: 24),
+
+              // Murais Auxiliares
+              const Text(
+                'Mural da Salinha 📌',
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              FutureBuilder<Map<String, dynamic>>(
+                future: _fetchMuraisData(),
+                builder: (context, snapshot) {
+                  final data = snapshot.data ?? {'prayers': <String>[], 'absents': [], 'birthdays': []};
+                  final List<String> prayers = List<String>.from(data['prayers']);
+                  final List absents = data['absents'];
+                  final List birthdays = data['birthdays'];
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. Mural de Aniversariantes
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: DsRadius.large,
+                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+                          boxShadow: _floatingShadow(),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.cake_rounded, color: Colors.purpleAccent, size: 18),
+                                SizedBox(width: 6),
+                                Text('Aniversariantes', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            if (birthdays.isEmpty)
+                              Row(
+                                children: const [
+                                  Text('🎂', style: TextStyle(fontSize: 14)),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Nenhum aniversariante esta semana 🎂',
+                                      style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: birthdays.map((s) => Chip(
+                                  label: Text('${s.name} (${s.birthDate?.substring(0, 5)})', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11, color: Color(0xFF7E22CE))),
+                                  backgroundColor: const Color(0xFFF3E8FF),
+                                  side: BorderSide.none,
+                                  padding: EdgeInsets.zero,
+                                )).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 2. Mural de Pedidos de Oração
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: DsRadius.large,
+                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+                          boxShadow: _floatingShadow(),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: const [
+                                    Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 18),
+                                    SizedBox(width: 6),
+                                    Text('Pedidos de Oração', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                  ],
+                                ),
+                                if (prayers.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.azulCeleste, size: 20),
+                                    onPressed: () => _showAddPrayerDialog(context),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            if (prayers.isEmpty)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Nenhum pedido cadastrado', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _showAddPrayerDialog(context),
+                                      icon: const Icon(Icons.add_rounded, size: 16),
+                                      label: const Text('Registrar Oração', style: TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.azulCeleste,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 8),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: prayers.length,
+                                itemBuilder: (context, i) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.lens, size: 6, color: Colors.redAccent),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            prayers[i],
+                                            style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF334155), fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),
+                                          onPressed: () async {
+                                            final prefs = await SharedPreferences.getInstance();
+                                            prayers.removeAt(i);
+                                            await prefs.setStringList('prayer_requests', prayers);
+                                            setState(() {});
+                                          },
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        )
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 3. Mural de Ausências
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: DsRadius.large,
+                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+                          boxShadow: _floatingShadow(),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.flag_rounded, color: Colors.orangeAccent, size: 18),
+                                SizedBox(width: 6),
+                                Text('Ausências / Faltas', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            if (absents.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Text('🎉', style: TextStyle(fontSize: 14)),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Toda a turma presente! 🎉',
+                                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, color: Color(0xFF047857), fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${absents.length} alunos ausentes hoje:',
+                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: absents.map((s) => Chip(
+                                      label: Text(s.name, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11, color: Color(0xFFC2410C))),
+                                      backgroundColor: const Color(0xFFFFE5D9),
+                                      side: BorderSide.none,
+                                      padding: EdgeInsets.zero,
+                                    )).toList(),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 20),
             ],
           ),
@@ -591,120 +950,57 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  // --- CARD HOJE NA AULA ---
-  Widget _buildTodayClassCard(BuildContext context) {
+  // --- HERO ACTION CARD UNIFICADO ---
+  Widget _buildHeroActionCard(BuildContext context) {
     return FutureBuilder<List<LessonPlan>>(
-      future: DatabaseHelper.instance.fetchAllLessonPlans(),
+      future: widget.lessonPlansFuture,
       builder: (context, snapshot) {
         final planList = snapshot.data;
         final hasPlan = planList != null && planList.isNotEmpty;
         final latestPlan = hasPlan ? planList.first : null;
         
         final title = latestPlan != null ? latestPlan.title : 'Nenhuma aula ativa';
-        final subtitle = latestPlan != null ? 'Versículo: ${latestPlan.keyVerse}' : 'Abra uma aula para ver aqui';
-        final status = latestPlan != null ? 'Ativa' : 'Aguardando';
-        final statusColor = latestPlan != null ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
-        final icon = latestPlan != null ? Icons.auto_awesome : Icons.event_busy_rounded;
-        final iconColor = latestPlan != null ? DsColors.primaryBlue : DsColors.textDisabled;
+        final verse = latestPlan != null ? latestPlan.keyVerse : 'Seja forte e corajoso! Não se apavore, nem desanime...';
 
-        return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClassModeScreen())),
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD7E7FC).withOpacity(0.95),
-              borderRadius: DsRadius.large,
-              border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-              boxShadow: _floatingShadow(),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Hoje na Aula',
-                      style: TextStyle(
-                        fontFamily: 'Fredoka',
-                        fontSize: 15,
-                        color: Color(0xFF1E293B),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          fontFamily: 'Fredoka',
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        icon,
-                        size: 26,
-                        color: iconColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Fredoka',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Nunito',
-                              fontSize: 12,
-                              color: Color(0xFF475569),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, prefsSnapshot) {
+            bool chamadaConcluida = false;
+            if (prefsSnapshot.hasData && prefsSnapshot.data != null) {
+              final presentIds = prefsSnapshot.data!.getStringList('present_student_ids') ?? [];
+              chamadaConcluida = presentIds.isNotEmpty;
+            }
+
+            final badgeText = chamadaConcluida 
+                ? 'Aula pronta para começar!' 
+                : 'Aguardando chamada de hoje';
+            final badgeColor = chamadaConcluida 
+                ? const Color(0xFF10B981) 
+                : const Color(0xFFF59E0B);
+            final actionType = chamadaConcluida 
+                ? HeroActionType.startClass 
+                : HeroActionType.startAttendance;
+
+            return HeroActionCard(
+              title: title,
+              verse: verse,
+              badgeText: badgeText,
+              badgeColor: badgeColor,
+              actionType: actionType,
+              onActionPressed: () {
+                if (!chamadaConcluida) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ChamadaScreen()),
+                  );
+                } else {
+                  widget.onSwitchTab(1); // Mudar aba para Modo Aula (tab index 1)
+                }
+              },
+            );
+          },
         );
-      }
+      },
     );
   }
 
@@ -856,7 +1152,7 @@ class DashboardContent extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            'Próxima Atividade',
+            'Central de Jogos & Dinâmicas',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Fredoka',
@@ -874,35 +1170,21 @@ class DashboardContent extends StatelessWidget {
               boxShadow: _floatingShadow(),
             ),
             child: const Icon(
-              Icons.calendar_today_rounded,
-              color: Color(0xFFEF4444),
+              Icons.sports_esports_rounded,
+              color: Color(0xFFFF8C00),
               size: 20,
             ),
           ),
           const SizedBox(height: 8),
-          Column(
-            children: const [
-              Text(
-                'Nenhuma Agendada',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Fredoka',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Para hoje',
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 10,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          const Text(
+            'Acesse a arena com quizzes, roleta, equipes e dinâmicas interativas.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 11,
+              color: Color(0xFF475569),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 10),
           ElevatedButton(
@@ -916,7 +1198,7 @@ class DashboardContent extends StatelessWidget {
               elevation: 0,
             ),
             child: const Text(
-              'Iniciar Atividade',
+              'Abrir Central de Jogos',
               style: TextStyle(
                 fontFamily: 'Fredoka',
                 fontSize: 10,
@@ -930,92 +1212,7 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  // --- CARD VERSÍCULO DO DIA PREMIUM ---
-  Widget _buildVerseCard() {
-    return FutureBuilder<List<LessonPlan>>(
-      future: DatabaseHelper.instance.fetchAllLessonPlans(),
-      builder: (context, snapshot) {
-        final planList = snapshot.data;
-        final hasPlan = planList != null && planList.isNotEmpty;
-        final latestPlan = hasPlan ? planList.first : null;
-        
-        final verseText = latestPlan != null && latestPlan.keyVerse.isNotEmpty 
-            ? latestPlan.keyVerse 
-            : '"Seja forte e corajoso! Não se apavore, nem desanime..."';
-        final verseReference = latestPlan != null && latestPlan.title.isNotEmpty 
-            ? latestPlan.title 
-            : 'Josué 1:9';
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.85),
-            borderRadius: DsRadius.large,
-            border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-            boxShadow: _floatingShadow(),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    'Versículo do Dia',
-                    style: TextStyle(
-                      fontFamily: 'Fredoka',
-                      fontSize: 15,
-                      color: Color(0xFF475569),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '📖 Leitura',
-                    style: TextStyle(
-                      fontFamily: 'Fredoka',
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                verseText,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  height: 1.5, // Conforto visual de line-height
-                  color: Color(0xFF1E293B),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  verseReference,
-                  style: const TextStyle(
-                    fontFamily: 'Fredoka',
-                    fontSize: 11,
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-    );
-  }
 
   List<BoxShadow> _softShadow() => DsElevation.subtle;
   List<BoxShadow> _floatingShadow() => DsElevation.floatCard;
