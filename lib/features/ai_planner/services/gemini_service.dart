@@ -215,8 +215,20 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body);
-      final String? responseText = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
-
+      
+      final candidates = jsonResponse['candidates'] as List<dynamic>?;
+      if (candidates == null || candidates.isEmpty) {
+        throw Exception('A IA não retornou texto (Possível bloqueio de segurança).');
+      }
+      
+      final content = candidates[0]?['content'] as Map<String, dynamic>?;
+      final parts = content?['parts'] as List<dynamic>?;
+      if (parts == null || parts.isEmpty) {
+        throw Exception('Formato de resposta inesperado (sem parts).');
+      }
+      
+      final String? responseText = parts[0]?['text']?.toString();
+      
       if (responseText != null) {
         String cleanJson = responseText.replaceAll('```json', '').replaceAll('```', '').trim();
         dynamic decodedJson;
