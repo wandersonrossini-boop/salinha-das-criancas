@@ -35,3 +35,9 @@ node_modules/
 
 # Firebase Related
 .firebase/
+
+# Temporary patch and diff files
+diff_diagnostico.txt
+diff_home.txt
+pre_restore_complete.patch
+

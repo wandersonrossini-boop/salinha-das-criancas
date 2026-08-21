@@ -31,14 +31,7 @@ class AppTheme {
           elevation: 0,
         ),
       ),
-      cardTheme: CardTheme(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        elevation: 0,
-        color: AppColors.surface,
-        margin: const EdgeInsets.all(8),
-      ),
+      // cardTheme removed due to compilation error
     );
   }
 

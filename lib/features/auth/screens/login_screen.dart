@@ -55,6 +55,8 @@ class _LoginScreenState extends State<LoginScreen> {
           'id': doc.id,
           'nome': data['nome'] ?? 'Sem nome',
           'email': data['email'] ?? '',
+          'role': data['role'] ?? 'professor',
+          'turmaId': data['turmaId'] ?? '',
         };
       }).toList();
 
@@ -86,14 +88,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final role = prefs.getString('user_role') ?? '';
     
     if (keep) {
-      if (role == 'admin') {
+      if (role == 'coordenador') {
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
           );
         }
-      } else if (role == 'teacher' && FirebaseAuth.instance.currentUser != null) {
+      } else if (role == 'professor' && FirebaseAuth.instance.currentUser != null) {
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -150,11 +152,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (selectedId == 'admin') {
           if (password == 'admin2026') {
+            final prefs = await SharedPreferences.getInstance();
             if (_keepLoggedIn) {
-              final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('keep_logged_in', true);
-              await prefs.setString('user_role', 'admin');
             }
+            await prefs.setString('user_role', 'coordenador');
+            await prefs.setString('turmaId', '');
             if (mounted) {
               Navigator.pushReplacement(
                 context,
@@ -182,11 +185,12 @@ class _LoginScreenState extends State<LoginScreen> {
           
           final data = doc.data()!;
           if (data['ativo'] == true) {
+            final prefs = await SharedPreferences.getInstance();
             if (_keepLoggedIn) {
-              final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('keep_logged_in', true);
-              await prefs.setString('user_role', 'teacher');
             }
+            await prefs.setString('user_role', data['role'] ?? 'professor');
+            await prefs.setString('turmaId', data['turmaId'] ?? '');
             if (mounted) {
               Navigator.pushReplacement(
                 context,
