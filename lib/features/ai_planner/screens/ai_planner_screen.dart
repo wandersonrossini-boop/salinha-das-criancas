@@ -126,7 +126,9 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
