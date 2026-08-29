@@ -115,7 +115,9 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Série de $count aulas gerada com sucesso! 🎉')),
         );
-        Navigator.pop(context); // Go back after generation (assuming pushed or just remain)
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {

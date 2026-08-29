@@ -66,7 +66,10 @@ class GeminiService {
     try {
       final doc = await FirebaseFirestore.instance.collection('config').doc('gemini').get();
       if (doc.exists && doc.data() != null) {
-        apiKey = doc.data()!['api_key'] ?? '';
+        final String key = doc.data()!['api_key'] ?? '';
+        if (key != 'mock-key') {
+          apiKey = key;
+        }
       }
     } catch (e) {
       // Ignorar e tentar SharedPreferences ou fallback
@@ -204,11 +207,14 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
             {
               'parts': [{'text': prompt}]
             }
-          ]
+          ],
+          'generationConfig': {
+            'responseMimeType': 'application/json'
+          }
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 120));
     } on TimeoutException {
-      throw Exception('A requisição para a IA excedeu o tempo limite de 30 segundos.');
+      throw Exception('A requisição para a IA excedeu o tempo limite de 120 segundos.');
     } catch (e) {
       throw Exception('Erro de conexão ao acessar a IA: \$e');
     }
@@ -230,7 +236,13 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
       final String? responseText = parts[0]?['text']?.toString();
       
       if (responseText != null) {
-        String cleanJson = responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+        String cleanJson = responseText.trim();
+        final firstBracket = cleanJson.indexOf(RegExp(r'[\{\[]'));
+        final lastBracket = cleanJson.lastIndexOf(RegExp(r'[\}\]]'));
+        if (firstBracket != -1 && lastBracket != -1 && lastBracket > firstBracket) {
+          cleanJson = cleanJson.substring(firstBracket, lastBracket + 1);
+        }
+        
         dynamic decodedJson;
         try {
           decodedJson = jsonDecode(cleanJson);
