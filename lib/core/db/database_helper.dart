@@ -112,11 +112,17 @@ class DatabaseHelper {
   }
 
   Future<List<LessonPlan>> fetchAllLessonPlans() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('lesson_plans')
-        .orderBy('id', descending: true)
-        .get();
-    return snapshot.docs.map((doc) => LessonPlan.fromMap(doc.data())).toList();
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('lesson_plans')
+          .orderBy('id', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      return snapshot.docs.map((doc) => LessonPlan.fromMap(doc.data())).toList();
+    } catch (e) {
+      print("Erro ou timeout ao buscar planos de aula: $e");
+      return [];
+    }
   }
 
   Future<void> updateLessonPlan(LessonPlan plan) async {

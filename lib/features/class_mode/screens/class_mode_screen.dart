@@ -14,7 +14,9 @@ import '../../teams/screens/teams_screen.dart';
 import '../../../core/utils/safe_converters.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 class ClassModeScreen extends StatefulWidget {
-  const ClassModeScreen({super.key});
+  final LessonPlan? initialPlan;
+  
+  const ClassModeScreen({super.key, this.initialPlan});
 
   @override
   State<ClassModeScreen> createState() => _ClassModeScreenState();
@@ -48,12 +50,23 @@ class _ClassModeScreenState extends State<ClassModeScreen> {
   }
 
   Future<void> _loadLatestPlan() async {
-    final plans = await DatabaseHelper.instance.fetchAllLessonPlans();
-    if (plans.isNotEmpty) {
-      _currentPlan = plans.first;
-      _buildEtapas(_currentPlan!);
-    } else {
-      // Fallback
+    try {
+      if (widget.initialPlan != null) {
+        _currentPlan = widget.initialPlan;
+        _buildEtapas(_currentPlan!);
+      } else {
+        final plans = await DatabaseHelper.instance.fetchAllLessonPlans().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => <LessonPlan>[], // Retorna lista vazia em caso de timeout
+        );
+        if (plans.isNotEmpty) {
+          _currentPlan = plans.first;
+          _buildEtapas(_currentPlan!);
+        } else {
+          _buildEtapasFallback();
+        }
+      }
+    } catch (e) {
       _buildEtapasFallback();
     }
 

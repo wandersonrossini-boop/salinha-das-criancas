@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _classModeRevision = 0;
   late Future<List<LessonPlan>> _lessonPlansFuture;
+  LessonPlan? _latestGeneratedPlan;
 
   @override
   void initState() {
@@ -68,10 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
           ), // 0: Início
-          ClassModeScreen(key: ValueKey(_classModeRevision)),           // 1: Aulas
+          ClassModeScreen(
+            key: ValueKey(_classModeRevision),
+            initialPlan: _latestGeneratedPlan,
+          ),           // 1: Aulas
           const GamesMenuScreen(),           // 2: Atividades / Jogos
           AiPlannerScreen(
-            onPlanGenerated: () {
+            onPlanGenerated: (LessonPlan plan) {
+              _latestGeneratedPlan = plan;
               refreshLessonPlans();
               setState(() {
                 _currentIndex = 1;

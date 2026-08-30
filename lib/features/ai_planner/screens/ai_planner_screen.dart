@@ -9,7 +9,7 @@ import '../../../core/components/mascot/mascot_assets.dart';
 import '../../../core/design_system/colors.dart';
 
 class AiPlannerScreen extends StatefulWidget {
-  final VoidCallback? onPlanGenerated;
+  final ValueChanged<LessonPlan>? onPlanGenerated;
 
   const AiPlannerScreen({super.key, this.onPlanGenerated});
 
@@ -107,18 +107,32 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
         _temaController.text,
         _selectedIdade,
         count,
-      );
+      ).timeout(const Duration(seconds: 35), onTimeout: () {
+        throw Exception("O Gemini demorou muito para responder (Timeout).");
+      });
         
+      bool saveError = false;
       for (var plan in plans) {
-        await DatabaseHelper.instance.insertLessonPlan(plan);
+        try {
+          await DatabaseHelper.instance.insertLessonPlan(plan).timeout(const Duration(seconds: 8));
+        } catch (e) {
+          saveError = true;
+          debugPrint("Erro ao salvar plano no banco de dados (timeout/auth): $e");
+        }
       }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Série de $count aulas gerada com sucesso! 🎉')),
-        );
-        if (widget.onPlanGenerated != null) {
-          widget.onPlanGenerated!();
+        if (saveError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aula gerada, mas não salva permanentemente (erro de banco). Exibindo localmente!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Série de $count aulas gerada com sucesso! 🎉')),
+          );
+        }
+        if (widget.onPlanGenerated != null && plans.isNotEmpty) {
+          widget.onPlanGenerated!(plans.first);
         } else if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
