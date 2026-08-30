@@ -70,7 +70,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ), // 0: Início
           ClassModeScreen(key: ValueKey(_classModeRevision)),           // 1: Aulas
           const GamesMenuScreen(),           // 2: Atividades / Jogos
-          const AiPlannerScreen(),           // 3: Crianças / IA
+          AiPlannerScreen(
+            onPlanGenerated: () {
+              refreshLessonPlans();
+              setState(() {
+                _currentIndex = 1;
+                _classModeRevision++;
+              });
+            },
+          ),           // 3: Crianças / IA
           const AdminScreen(),               // 4: Configurações / Admin
         ],
       ),

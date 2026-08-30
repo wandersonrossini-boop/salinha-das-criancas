@@ -9,7 +9,9 @@ import '../../../core/components/mascot/mascot_assets.dart';
 import '../../../core/design_system/colors.dart';
 
 class AiPlannerScreen extends StatefulWidget {
-  const AiPlannerScreen({super.key});
+  final VoidCallback? onPlanGenerated;
+
+  const AiPlannerScreen({super.key, this.onPlanGenerated});
 
   @override
   State<AiPlannerScreen> createState() => _AiPlannerScreenState();
@@ -115,7 +117,9 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Série de $count aulas gerada com sucesso! 🎉')),
         );
-        if (Navigator.canPop(context)) {
+        if (widget.onPlanGenerated != null) {
+          widget.onPlanGenerated!();
+        } else if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
       }
