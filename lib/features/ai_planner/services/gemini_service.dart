@@ -202,26 +202,43 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
 
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$apiKey');
     
-    http.Response response;
-    try {
-      response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [{'text': prompt}]
+    http.Response? response;
+    const int maxAttempts = 3;
+    
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'contents': [
+              {
+                'parts': [{'text': prompt}]
+              }
+            ],
+            'generationConfig': {
+              'responseMimeType': 'application/json'
             }
-          ],
-          'generationConfig': {
-            'responseMimeType': 'application/json'
-          }
-        }),
-      ).timeout(const Duration(seconds: 120));
-    } on TimeoutException {
-      throw Exception('A requisição para a IA excedeu o tempo limite de 120 segundos.');
-    } catch (e) {
-      throw Exception('Erro de conexão ao acessar a IA: ${_redact(e, apiKey)}');
+          }),
+        ).timeout(const Duration(seconds: 120));
+
+        if ((response.statusCode == 503 || response.statusCode == 429) && attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: 3 * attempt));
+          continue;
+        }
+        break;
+      } on TimeoutException {
+        throw Exception('A requisição para a IA excedeu o tempo limite de 120 segundos.');
+      } catch (e) {
+        if (attempt == maxAttempts) {
+          throw Exception('Erro de conexão ao acessar a IA: ${_redact(e, apiKey)}');
+        }
+        await Future.delayed(Duration(seconds: 2 * attempt));
+      }
+    }
+
+    if (response == null) {
+      throw Exception('Não foi possível obter resposta da IA após várias tentativas.');
     }
 
     if (response.statusCode == 200) {
