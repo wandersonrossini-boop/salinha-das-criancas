@@ -97,19 +97,18 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
   }
 
   Future<void> _gerarAula() async {
-    if (_temaController.text.isEmpty) return;
+    if (_isLoading) return;
+    if (_temaController.text.trim().isEmpty) return;
 
     setState(() => _isLoading = true);
 
     try {
       final int count = int.tryParse(_selectedAulas) ?? 4;
       final plans = await _geminiService.generateMonthlySeries(
-        _temaController.text,
+        _temaController.text.trim(),
         _selectedIdade,
         count,
-      ).timeout(const Duration(seconds: 35), onTimeout: () {
-        throw Exception("O Gemini demorou muito para responder (Timeout).");
-      });
+      );
         
       bool saveError = false;
       for (var plan in plans) {
@@ -139,8 +138,13 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final detail = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao gerar aula: $e')),
+          SnackBar(
+            content: Text('Não foi possível gerar a aula. $detail'),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(label: 'Tentar de novo', onPressed: _gerarAula),
+          ),
         );
       }
     } finally {
@@ -305,7 +309,24 @@ class _AiPlannerScreenState extends State<AiPlannerScreen> {
               const SizedBox(height: 24),
               
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text(
+                            'Gerando a aula... isto pode levar até 2 minutos.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 12.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   : SizedBox(
                       height: 52,
                       child: ElevatedButton.icon(

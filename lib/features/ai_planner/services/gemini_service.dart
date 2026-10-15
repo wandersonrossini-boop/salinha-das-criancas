@@ -8,6 +8,11 @@ import '../models/classroom_age_profile.dart';
 import '../../../core/utils/safe_converters.dart';
 
 class GeminiService {
+  String _redact(Object error, String apiKey) {
+    final text = error.toString();
+    return apiKey.isEmpty ? text : text.replaceAll(apiKey, '***');
+  }
+
   ClassroomAgeProfile _parseAgeGroup(String ageGroup) {
     if (ageGroup.toLowerCase().contains('turma mista') || ageGroup.contains('4 a 11') || ageGroup.contains('4-11')) {
       return ClassroomAgeProfile(
@@ -94,7 +99,7 @@ class GeminiService {
     
     String countInstruction = isIndividual 
       ? 'Crie um plano de aula dinâmico e engajador para crianças.' 
-      : 'Crie uma série de \$count aulas dinâmicas e engajadoras.';
+      : 'Crie uma série de $count aulas dinâmicas e engajadoras.';
 
     final prompt = '''
 Você é um especialista em ministério infantil cristão. 
@@ -127,12 +132,12 @@ FREIO HERMENÊUTICO E REVISÃO INTERNA OBRIGATÓRIA:
 Antes de produzir e devolver o JSON final, você DEVE revisar internamente todos os campos gerados ('objective', 'storyTopics', 'questions', 'stations', 'dynamicActivity', 'prayer') contra os limites de ('centralTruth', 'textSays', 'textAllowsToConclude', 'textDoesNotSay'). 
 Se houver qualquer violação ou se alguma ideia vetada em 'textDoesNotSay' reaparecer em qualquer parte da aula (como moralismos comportamentais ou técnicas de silêncio acústico), você DEVE corrigir e reescrever o conteúdo antes de retornar o JSON final.
 
-\$countInstruction
-Tema\${isIndividual ? '' : ' da Série'}: \$theme
-Faixa Etária: \$ageGroup
-\$specialInstructions
+$countInstruction
+Tema${isIndividual ? '' : ' da Série'}: $theme
+Faixa Etária: $ageGroup
+$specialInstructions
 
-RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdown como ```json). Deve ser uma array de \$count objetos:
+RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdown como ```json). Deve ser uma array de $count objetos:
 [
   {
     "title": "título criativo da aula (ex: Aula 1 - A Criação)",
@@ -216,7 +221,7 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
     } on TimeoutException {
       throw Exception('A requisição para a IA excedeu o tempo limite de 120 segundos.');
     } catch (e) {
-      throw Exception('Erro de conexão ao acessar a IA: \$e');
+      throw Exception('Erro de conexão ao acessar a IA: ${_redact(e, apiKey)}');
     }
 
     if (response.statusCode == 200) {
@@ -247,7 +252,7 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
         try {
           decodedJson = jsonDecode(cleanJson);
         } catch (e) {
-          throw Exception('A resposta da IA não é um JSON válido: \$e');
+          throw Exception('A resposta da IA não é um JSON válido: $e');
         }
 
         if (decodedJson is Map) {
@@ -268,11 +273,11 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
         for (int i = 0; i < dataList.length; i++) {
           final data = dataList[i];
           if (data == null || data is! Map) {
-            errors.add('Índice \$i: Formato do item corrompido (não é Map).');
+            errors.add('Índice $i: Formato do item corrompido (não é Map).');
             continue;
           }
           if (data['title'] == null || data['keyVerse'] == null || data['title'].toString().trim().isEmpty || data['keyVerse'].toString().trim().isEmpty) {
-            errors.add('Índice \$i: Campos mínimos ausentes ou vazios (title ou keyVerse).');
+            errors.add('Índice $i: Campos mínimos ausentes ou vazios (title ou keyVerse).');
             continue;
           }
           
@@ -294,16 +299,16 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
               biblicalCore: data['biblicalCore'] != null ? BiblicalCore.fromMap(data['biblicalCore'] as Map<String, dynamic>) : null,
             ));
           } catch (e) {
-            errors.add('Índice \$i: Erro ao instanciar LessonPlan (\$e).');
+            errors.add('Índice $i: Erro ao instanciar LessonPlan ($e).');
           }
         }
 
         if (validPlans.isEmpty) {
-          throw Exception('Nenhum plano válido foi gerado. Erros encontrados: \${errors.join(" | ")}');
+          throw Exception('Nenhum plano válido foi gerado. Erros encontrados: ${errors.join(" | ")}');
         }
         
         if (errors.isNotEmpty) {
-          print('WARNING: Perda parcial de planos gerados. Erros: \${errors.join(" | ")}');
+          print('WARNING: Perda parcial de planos gerados. Erros: ${errors.join(" | ")}');
         }
         
         return validPlans;
@@ -311,7 +316,7 @@ RETORNE APENAS UM JSON VÁLIDO EXATAMENTE NESTE FORMATO (sem formatação markdo
         throw Exception('A resposta da IA foi nula.');
       }
     } else {
-      throw Exception('Erro na API (Status \${response.statusCode}): \${response.body}');
+      throw Exception('Erro na API (Status ${response.statusCode}): ${_redact(response.body, apiKey)}');
     }
   }
 }
