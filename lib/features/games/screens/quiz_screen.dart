@@ -35,9 +35,10 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_selectedAgeBand == 'Todas') {
       return _questions;
     }
+    final targetBand = MixedAgeStation.normalizeAgeBand(_selectedAgeBand);
     return _questions.where((q) {
-      final band = q['ageBand'] ?? q['faixaEtaria'];
-      return band == _selectedAgeBand;
+      final rawBand = (q['ageBand'] ?? q['faixaEtaria'] ?? '4-7').toString();
+      return MixedAgeStation.normalizeAgeBand(rawBand) == targetBand;
     }).toList();
   }
 
@@ -52,13 +53,56 @@ class _QuizScreenState extends State<QuizScreen> {
   int _streak = 0;
   int _timeLeft = 30;
   Timer? _timer;
+  final Stopwatch _questionStopwatch = Stopwatch();
   
   bool _answered = false;
   String? _selectedOption;
   
   // Game statistics
   int _totalCorrectAnswers = 0;
-  int _totalSecondsSpent = 0;
+  int _totalMillisecondsSpent = 0;
+  int _questionsAnsweredCount = 0;
+  Map<String, int> _roundPoints = {};
+
+  String _teamKey(Team t) => '${t.id ?? 0}_${t.name}';
+  int _getRoundPoints(Team t) => _roundPoints[_teamKey(t)] ?? 0;
+
+  String _resolveCorrectOption(Map<String, dynamic> question) {
+    final rawAnswer = (question['answer'] ?? '').toString().trim();
+    final rawOptions = (question['options'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        const <String>[];
+    if (rawOptions.isEmpty) return rawAnswer;
+
+    // 1. Exact match
+    for (final opt in rawOptions) {
+      if (opt == rawAnswer) return opt;
+    }
+    // 2. Case-insensitive trimmed match
+    final lowerAnswer = rawAnswer.toLowerCase();
+    for (final opt in rawOptions) {
+      if (opt.trim().toLowerCase() == lowerAnswer) return opt;
+    }
+    // 3. Letter index match (e.g. "A", "B", "C", "D" or "A)")
+    final letterMatch = RegExp(r'^([A-Da-d])[\)\.\-\s]*$').firstMatch(rawAnswer);
+    if (letterMatch != null) {
+      final idx = letterMatch.group(1)!.toUpperCase().codeUnitAt(0) - 65;
+      if (idx >= 0 && idx < rawOptions.length) {
+        return rawOptions[idx];
+      }
+    }
+    // 4. Option starts with or contains answer
+    for (final opt in rawOptions) {
+      final cleanOpt = opt.trim().toLowerCase();
+      if (cleanOpt.isNotEmpty &&
+          lowerAnswer.isNotEmpty &&
+          (cleanOpt.contains(lowerAnswer) || lowerAnswer.contains(cleanOpt))) {
+        return opt;
+      }
+    }
+    return rawAnswer;
+  }
 
   final List<Map<String, dynamic>> _defaultPool = [
     {
@@ -66,70 +110,70 @@ class _QuizScreenState extends State<QuizScreen> {
       'options': ['Moisés', 'Davi', 'Paulo', 'Pedro'],
       'answer': 'Davi',
       'curiosidade': 'Davi usou apenas uma pedra e uma funda, mostrando que a confiança em Deus vence qualquer obstáculo!',
-      'ageBand': '4-6'
+      'ageBand': '4-7'
     },
     {
       'question': 'Quem foi engolido por um grande peixe?',
       'options': ['Elias', 'João', 'Jonas', 'Noé'],
       'answer': 'Jonas',
       'curiosidade': 'Jonas ficou três dias na barriga do peixe até se arrepender e obedecer ao chamado de Deus.',
-      'ageBand': '4-6'
+      'ageBand': '4-7'
     },
     {
       'question': 'Quantos dias e noites choveu no dilúvio?',
       'options': ['10', '40', '7', '100'],
       'answer': '40',
       'curiosidade': 'Depois dos 40 dias de chuva, Deus colocou o arco-íris nas nuvens como um pacto de amor.',
-      'ageBand': '7-8'
+      'ageBand': '8-11'
     },
     {
       'question': 'Quem abriu o Mar Vermelho?',
       'options': ['Abraão', 'Moisés', 'Josué', 'Davi'],
       'answer': 'Moisés',
       'curiosidade': 'Moisés estendeu seu cajado obedecendo a Deus, e um vento forte soprou abrindo caminho na água.',
-      'ageBand': '4-6'
+      'ageBand': '4-7'
     },
     {
       'question': 'Quem foi lançado na cova dos leões?',
       'options': ['Daniel', 'Sadraque', 'Ezequiel', 'José'],
       'answer': 'Daniel',
       'curiosidade': 'Daniel orava três vezes ao dia e Deus enviou um anjo para fechar a boca dos leões.',
-      'ageBand': '7-8'
+      'ageBand': '8-11'
     },
     {
       'question': 'Qual o nome do anjo que apareceu a Maria?',
       'options': ['Miguel', 'Gabriel', 'Rafael', 'Lúcifer'],
       'answer': 'Gabriel',
       'curiosidade': 'O anjo Gabriel trouxe a mensagem mais feliz da história: o nascimento de Jesus!',
-      'ageBand': '9-11'
+      'ageBand': '8-11'
     },
     {
       'question': 'Jesus multiplicou 5 pães e quantos peixinhos?',
       'options': ['2', '3', '5', '7'],
       'answer': '2',
       'curiosidade': 'Com apenas 5 pães e 2 peixinhos, Jesus alimentou mais de 5 mil pessoas e ainda sobrou comida!',
-      'ageBand': '4-6'
+      'ageBand': '4-7'
     },
     {
       'question': 'Quem foi o homem mais forte da Bíblia?',
       'options': ['Davi', 'Golias', 'Sansão', 'Saul'],
       'answer': 'Sansão',
       'curiosidade': 'A força de Sansão vinha do Espírito do Senhor, mas ele precisava guardar o segredo de consagrado.',
-      'ageBand': '7-8'
+      'ageBand': '8-11'
     },
     {
       'question': 'Onde Jesus nasceu?',
       'options': ['Jerusalém', 'Nazaré', 'Belém', 'Egito'],
       'answer': 'Belém',
       'curiosidade': 'Jesus nasceu em uma estrebaria em Belém e foi colocado em uma manjedoura.',
-      'ageBand': '4-6'
+      'ageBand': '4-7'
     },
     {
       'question': 'Quantos discípulos Jesus tinha?',
       'options': ['10', '12', '7', '14'],
       'answer': '12',
       'curiosidade': 'Jesus chamou 12 homens comuns para andarem com Ele e pregarem a Palavra pelo mundo todo.',
-      'ageBand': '9-11'
+      'ageBand': '8-11'
     },
   ];
 
@@ -142,6 +186,7 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _questionStopwatch.stop();
     super.dispose();
   }
 
@@ -166,32 +211,29 @@ class _QuizScreenState extends State<QuizScreen> {
     if (widget.plan != null && widget.plan!.questions.isNotEmpty) {
       try {
         final parsed = jsonDecode(widget.plan!.questions) as List;
-        _questions = parsed.map((e) => e as Map<String, dynamic>).toList();
-        if (_totalQuestions > _questions.length) {
-          _totalQuestions = _questions.length;
-        }
+        _questions = parsed.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } catch (e) {
-        _questions = _defaultPool.take(_totalQuestions).toList();
+        _questions = List<Map<String, dynamic>>.from(_defaultPool);
       }
     } else if (widget.customQuestions != null && widget.customQuestions!.isNotEmpty) {
-      _questions = List.from(widget.customQuestions!);
-      if (_totalQuestions > _questions.length) {
-        _totalQuestions = _questions.length;
-      }
+      _questions = List<Map<String, dynamic>>.from(widget.customQuestions!);
     } else if (widget.questions != null && widget.questions!.isNotEmpty) {
-      _questions = List.from(widget.questions!);
-      if (_totalQuestions > _questions.length) {
-        _totalQuestions = _questions.length;
-      }
+      _questions = List<Map<String, dynamic>>.from(widget.questions!);
     } else {
-      _questions = _defaultPool.take(_totalQuestions).toList();
+      _questions = List<Map<String, dynamic>>.from(_defaultPool);
+    }
+
+    if (_questions.isEmpty) {
+      _questions = List<Map<String, dynamic>>.from(_defaultPool);
     }
     
     setState(() {
       _currentQuestionIndex = 0;
       _streak = 0;
       _totalCorrectAnswers = 0;
-      _totalSecondsSpent = 0;
+      _totalMillisecondsSpent = 0;
+      _questionsAnsweredCount = 0;
+      _roundPoints = {for (final t in _teams) _teamKey(t): 0};
       _state = QuizState.playing;
     });
     _startTimer();
@@ -202,14 +244,19 @@ class _QuizScreenState extends State<QuizScreen> {
     _answered = false;
     _selectedOption = null;
     _timer?.cancel();
+    _questionStopwatch
+      ..reset()
+      ..start();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeLeft > 0) {
         setState(() {
           _timeLeft--;
-          _totalSecondsSpent++;
         });
       } else {
         _timer?.cancel();
+        _questionStopwatch.stop();
+        _totalMillisecondsSpent += 30000;
+        _questionsAnsweredCount++;
         _processAnswer(false);
       }
     });
@@ -218,9 +265,12 @@ class _QuizScreenState extends State<QuizScreen> {
   void _checkAnswer(String option) {
     if (_answered) return;
     _timer?.cancel();
+    _questionStopwatch.stop();
+    _totalMillisecondsSpent += _questionStopwatch.elapsedMilliseconds.clamp(200, 30000);
+    _questionsAnsweredCount++;
     
-    final correctAnswer = _filteredQuestions[_currentQuestionIndex]['answer'] as String;
-    bool isCorrect = (option == correctAnswer);
+    final correctAnswer = _resolveCorrectOption(_filteredQuestions[_currentQuestionIndex]);
+    final bool isCorrect = option.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
     
     setState(() {
       _answered = true;
@@ -236,6 +286,8 @@ class _QuizScreenState extends State<QuizScreen> {
     if (isCorrect) {
       _streak++;
       _totalCorrectAnswers++;
+      final key = _teamKey(_activeTeam!);
+      _roundPoints[key] = (_roundPoints[key] ?? 0) + 10;
       final updatedTeam = Team(
         id: _activeTeam!.id,
         name: _activeTeam!.name,
@@ -246,7 +298,7 @@ class _QuizScreenState extends State<QuizScreen> {
         await DatabaseHelper.instance.updateTeam(updatedTeam);
       }
       
-      final idx = _teams.indexWhere((t) => t.id == _activeTeam!.id);
+      final idx = _teams.indexWhere((t) => _teamKey(t) == key);
       if (idx != -1) {
         setState(() {
           _teams[idx] = updatedTeam;
@@ -269,7 +321,7 @@ class _QuizScreenState extends State<QuizScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) {
         final curiosidade = _filteredQuestions[_currentQuestionIndex]['curiosidade'] ?? 'Os caminhos de Deus são incríveis!';
-        final correctAnswer = _filteredQuestions[_currentQuestionIndex]['answer'] as String;
+        final correctAnswer = _resolveCorrectOption(_filteredQuestions[_currentQuestionIndex]);
         
         return Padding(
           padding: const EdgeInsets.all(24.0),
@@ -718,9 +770,11 @@ class _QuizScreenState extends State<QuizScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: ['Todas', '4-6', '7-8', '9-11'].map((band) {
+              children: ['Todas', '4-7', '8-11'].map((band) {
                 final isSelected = (_selectedAgeBand == band);
-                final label = band == 'Todas' ? 'Todas' : '$band anos';
+                final label = band == 'Todas'
+                    ? 'Todas as idades'
+                    : 'Faixa ${band.replaceAll('-', '–')} anos';
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: ChoiceChip(
@@ -807,7 +861,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Recomendado: ${question['ageBand'] ?? '7-8'} anos',
+                    'Recomendado: Faixa ${MixedAgeStation.normalizeAgeBand((question['ageBand'] ?? question['faixaEtaria'] ?? '4-7').toString()).replaceAll('-', '–')} anos',
                     style: const TextStyle(
                       fontFamily: 'Fredoka',
                       fontSize: 11,
@@ -833,15 +887,16 @@ class _QuizScreenState extends State<QuizScreen> {
               physics: const BouncingScrollPhysics(),
               itemCount: (question['options'] as List).length,
               itemBuilder: (context, index) {
-                final option = question['options'][index] as String;
-                final correctAnswer = question['answer'] as String;
+                final option = question['options'][index].toString();
+                final correctAnswer = _resolveCorrectOption(question);
+                final isCorrectOpt = option.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
 
                 Color cardBgColor = Colors.white;
                 Color textColor = AppColors.textPrimary;
                 Border? cardBorder;
 
                 if (_answered) {
-                  if (option == correctAnswer) {
+                  if (isCorrectOpt) {
                     cardBgColor = const Color(0xFFDCFCE7); // Soft Green
                     textColor = const Color(0xFF15803D); // Dark Green
                     cardBorder = Border.all(color: const Color(0xFF22C55E), width: 1.5);
@@ -891,9 +946,13 @@ class _QuizScreenState extends State<QuizScreen> {
                     height: 48,
                     child: OutlinedButton.icon(
                       onPressed: () {
+                        _timer?.cancel();
+                        _questionStopwatch.stop();
+                        _totalMillisecondsSpent += _questionStopwatch.elapsedMilliseconds.clamp(200, 30000);
+                        _questionsAnsweredCount++;
                         setState(() {
                           _answered = true;
-                          _selectedOption = ''; // Revelar resposta sem penalidade
+                          _selectedOption = ''; // Revelar resposta sem pontuar
                         });
                       },
                       icon: const Icon(Icons.visibility_rounded),
@@ -930,8 +989,18 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildFinished() {
-    _teams.sort((a, b) => b.points.compareTo(a.points));
-    bool isTie = _teams.length > 1 && _teams[0].points == _teams[1].points;
+    _teams.sort((a, b) {
+      final roundCmp = _getRoundPoints(b).compareTo(_getRoundPoints(a));
+      if (roundCmp != 0) return roundCmp;
+      return b.points.compareTo(a.points);
+    });
+    final int denominator = _questionsAnsweredCount > 0
+        ? _questionsAnsweredCount
+        : (_actualTotalQuestions > 0 ? _actualTotalQuestions : 1);
+    final double avgSeconds = (_totalMillisecondsSpent / 1000.0) / denominator;
+    final bool isTie = _teams.length > 1 &&
+        _getRoundPoints(_teams[0]) == _getRoundPoints(_teams[1]);
+    final int accuracyPct = ((_totalCorrectAnswers / denominator) * 100).round();
 
     return Center(
       child: Padding(
@@ -957,7 +1026,16 @@ class _QuizScreenState extends State<QuizScreen> {
               const SizedBox(height: 20),
               
               if (isTie) ...[
-                const Text('HOUVE UM EMPATE!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.alerta)),
+                const Text('HOUVE UM EMPATE NA RODADA!', style: TextStyle(fontFamily: 'Fredoka', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.alerta)),
+                const SizedBox(height: 8),
+                Text(
+                  'Acertos na rodada: $_totalCorrectAnswers de $_actualTotalQuestions ($accuracyPct%)',
+                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
+                ),
+                Text(
+                  'Tempo médio: ${avgSeconds.toStringAsFixed(1)}s por pergunta',
+                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -982,15 +1060,17 @@ class _QuizScreenState extends State<QuizScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Pontuação final: ${_teams.first.points} pts',
-                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 16, fontWeight: FontWeight.bold),
+                  'Pontos nesta rodada: +${_getRoundPoints(_teams.first)} pts (Total: ${_teams.first.points} pts)',
+                  style: const TextStyle(fontFamily: 'Nunito', fontSize: 15, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'Total de acertos: $_totalCorrectAnswers / $_totalQuestions',
+                  'Acertos avaliados: $_totalCorrectAnswers de $_actualTotalQuestions ($accuracyPct%)',
                   style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
                 ),
                 Text(
-                  'Tempo médio: ${(_totalSecondsSpent / _totalQuestions).toStringAsFixed(1)}s por pergunta',
+                  'Tempo médio de resposta: ${avgSeconds.toStringAsFixed(1)}s por pergunta',
                   style: const TextStyle(fontFamily: 'Nunito', fontSize: 14, color: AppColors.textSecondary),
                 ),
               ],

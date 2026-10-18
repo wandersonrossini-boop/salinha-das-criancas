@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/db/database_helper.dart';
 import '../../core/components/image_helper.dart';
@@ -17,8 +20,7 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> {
-  bool _isAuthenticated = false;
-  final _pinController = TextEditingController();
+  bool _isCoordinator = false;
   List<Student> _students = [];
   List<Map<String, dynamic>> _attendanceHistory = [];
   bool _isLoading = true;
@@ -27,14 +29,19 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      _isAuthenticated = true;
-      _loadStudents();
-      _loadConfig();
-    } else {
-      _isAuthenticated = false;
-      setState(() => _isLoading = false);
+    _initScreen();
+  }
+
+  Future<void> _initScreen() async {
+    try {
+      final ctx = await DatabaseHelper.instance.getCurrentTeacherContext();
+      _isCoordinator = ctx['isCoordinator'] == true;
+    } catch (_) {
+      _isCoordinator = FirebaseAuth.instance.currentUser == null;
+    }
+    await _loadStudents();
+    if (_isCoordinator) {
+      await _loadConfig();
     }
   }
 
@@ -50,14 +57,23 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _loadStudents() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    final students = await DatabaseHelper.instance.fetchAllStudents();
-    final attendance = await DatabaseHelper.instance.fetchAllAttendance();
-    setState(() {
-      _students = students;
-      _attendanceHistory = attendance;
-      _isLoading = false;
-    });
+    try {
+      final students = await DatabaseHelper.instance.fetchAllStudents();
+      final attendance = await DatabaseHelper.instance.fetchAllAttendance();
+      if (!mounted) return;
+      setState(() {
+        _students = students;
+        _attendanceHistory = attendance;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Erro ao carregar alunos/presenças: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   String _cleanDriveUrl(String url) {
@@ -79,145 +95,389 @@ class _AdminScreenState extends State<AdminScreen> {
     return trimmed;
   }
 
+  ImageProvider _getStudentImageProvider(String? photoUrl) {
+    if (photoUrl == null || photoUrl.trim().isEmpty) {
+      return const AssetImage('assets/images/mascot/poses/idle.png');
+    }
+    if (photoUrl.startsWith('data:image')) {
+      try {
+        final base64String = photoUrl.split(',').last;
+        return MemoryImage(base64Decode(base64String));
+      } catch (_) {
+        return const AssetImage('assets/images/mascot/poses/idle.png');
+      }
+    }
+    return NetworkImage(ImageHelper.getProxiedImageUrl(photoUrl));
+  }
+
   void _showStudentFormModal([Student? student]) {
     final nameController = TextEditingController(text: student?.name ?? '');
-    final ageController = TextEditingController(text: student?.age.toString() ?? '');
+    final ageController = TextEditingController(
+      text: (student != null && student.age >= 4 && student.age <= 11) ? student.age.toString() : '',
+    );
     final birthDateController = TextEditingController(text: student?.birthDate ?? '');
-    final classController = TextEditingController(text: student?.turma ?? '');
-    final photoController = TextEditingController(text: student?.photoUrl ?? '');
     final alertController = TextEditingController(text: student?.alertMessage ?? '');
+    String? photoUrl = (student?.photoUrl != null && student!.photoUrl!.trim().isNotEmpty)
+        ? student.photoUrl!.trim()
+        : null;
 
-    bool hasChanges = false;
-    final initialName = student?.name ?? '';
-    final initialAge = student?.age.toString() ?? '';
-    final initialBirthDate = student?.birthDate ?? '';
-    final initialClass = student?.turma ?? '';
-    final initialPhoto = student?.photoUrl ?? '';
-    final initialAlert = student?.alertMessage ?? '';
+    String? errorMessage;
+    bool isSaving = false;
+    bool showSensitiveSection = (student?.alertMessage != null && student!.alertMessage!.trim().isNotEmpty);
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            void checkChanges() {
-              final currentName = nameController.text.trim();
-              final currentAge = ageController.text.trim();
-              final currentBirthDate = birthDateController.text.trim();
-              final currentClass = classController.text.trim();
-              final currentPhoto = photoController.text.trim();
-              final currentAlert = alertController.text.trim();
+            final parsedAge = int.tryParse(ageController.text.trim());
+            final isValidAge = parsedAge != null && parsedAge >= 4 && parsedAge <= 11;
+            final classifiedGroup = isValidAge ? Student.classifyAgeGroup(parsedAge) : null;
+            final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
 
-              final changed = currentName != initialName ||
-                  currentAge != initialAge ||
-                  currentBirthDate != initialBirthDate ||
-                  currentClass != initialClass ||
-                  currentPhoto != initialPhoto ||
-                  currentAlert != initialAlert;
-
-              if (changed != hasChanges) {
+            Future<void> pickImage(ImageSource source) async {
+              try {
+                final picker = ImagePicker();
+                final pickedFile = await picker.pickImage(
+                  source: source,
+                  maxWidth: 300,
+                  maxHeight: 300,
+                  imageQuality: 70,
+                );
+                if (pickedFile != null) {
+                  final bytes = await pickedFile.readAsBytes();
+                  setModalState(() {
+                    photoUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                  });
+                }
+              } catch (e) {
+                debugPrint('Erro ao selecionar imagem: $e');
                 setModalState(() {
-                  hasChanges = changed;
+                  errorMessage = 'Não foi possível carregar a imagem selecionada.';
                 });
               }
             }
 
-            nameController.removeListener(checkChanges);
-            ageController.removeListener(checkChanges);
-            birthDateController.removeListener(checkChanges);
-            classController.removeListener(checkChanges);
-            photoController.removeListener(checkChanges);
-            alertController.removeListener(checkChanges);
+            Future<void> handleSaveStudent() async {
+              if (isSaving) return;
+              final name = nameController.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+              final ageText = ageController.text.trim();
+              final age = int.tryParse(ageText);
+              final birthDate = birthDateController.text.trim();
+              final alert = alertController.text.trim();
 
-            nameController.addListener(checkChanges);
-            ageController.addListener(checkChanges);
-            birthDateController.addListener(checkChanges);
-            classController.addListener(checkChanges);
-            photoController.addListener(checkChanges);
-            alertController.addListener(checkChanges);
+              // 2. Validar nome e idade (ambos obrigatórios; idade inteira entre 4 e 11)
+              final hasLetters = RegExp(r'[A-Za-zÀ-ÿ]').hasMatch(name);
+              if (name.isEmpty || name.length < 2 || !hasLetters) {
+                setModalState(() {
+                  errorMessage = 'Informe um nome válido para o aluno (mínimo de 2 letras).';
+                });
+                return;
+              }
+
+              if (ageText.isEmpty || age == null || age < 4 || age > 11) {
+                setModalState(() {
+                  errorMessage = 'Informe uma idade inteira válida entre 4 e 11 anos.';
+                });
+                return;
+              }
+
+              setModalState(() {
+                isSaving = true;
+                errorMessage = null;
+              });
+
+              try {
+                // 3. Classificação automática pela faixa etária (4–7 ou 8–11 anos)
+                final autoAgeGroup = Student.classifyAgeGroup(age);
+                final cleanedPhoto = hasPhoto ? _cleanDriveUrl(photoUrl!) : '';
+
+                final newStudent = Student(
+                  id: student?.id,
+                  name: name,
+                  age: age,
+                  turma: autoAgeGroup,
+                  photoUrl: cleanedPhoto.isEmpty ? null : cleanedPhoto,
+                  alertMessage: alert.isEmpty ? null : alert,
+                  points: student?.points ?? 0,
+                  avatarPath: student?.avatarPath ?? 'assets/images/mascot/poses/idle.png',
+                  teamId: student?.teamId,
+                  birthDate: birthDate.isEmpty ? null : birthDate,
+                );
+
+                if (student == null) {
+                  await DatabaseHelper.instance.insertStudent(newStudent);
+                } else {
+                  await DatabaseHelper.instance.updateStudent(newStudent);
+                }
+
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        student == null
+                            ? '✓ Aluno "$name" ($autoAgeGroup) cadastrado com sucesso!'
+                            : '✓ Dados de "$name" ($autoAgeGroup) atualizados com sucesso!',
+                      ),
+                      backgroundColor: const Color(0xFF059669),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  _loadStudents();
+                }
+              } catch (e) {
+                setModalState(() {
+                  isSaving = false;
+                  errorMessage = 'Não foi possível salvar os dados do aluno. Tente novamente.';
+                });
+              }
+            }
+
+            final screenHeight = MediaQuery.of(context).size.height;
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               elevation: 10,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
+                constraints: BoxConstraints(
+                  maxWidth: 450,
+                  maxHeight: screenHeight * 0.88,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // TÍTULO E SUBTÍTULO
+                    // 1. CABEÇALHO LIMPO (SEM BOTÃO DUPLICADO DE SALVAR)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
+                      child: Row(
                         children: [
-                          Text(
-                            student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
-                            style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F172A)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
+                                  style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 19, color: Color(0xFF0F172A)),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Campos com * são obrigatórios (4 a 11 anos).',
+                                  style: TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Atualize as informações do aluno da escola bíblica.',
-                            style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B)),
+                          IconButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                            tooltip: 'Fechar',
                           ),
                         ],
                       ),
                     ),
                     const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     
-                    // CONTEÚDO SCROLLABLE (FORMULÁRIO)
-                    Expanded(
+                    // CONTEÚDO SCROLLABLE (FORMULÁRIO ADAPTADO PARA TELEMÓVEL)
+                    Flexible(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (errorMessage != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline_rounded, size: 18, color: Colors.red.shade700),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        errorMessage!,
+                                        style: TextStyle(
+                                          fontFamily: 'Nunito',
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // 4. FOTOGRAFIA OPCIONAL COM IMAGEM PADRÃO, SUBSTITUIR E REMOVER
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.white,
+                                    backgroundImage: _getStudentImageProvider(photoUrl),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          hasPhoto ? 'Fotografia personalizada' : 'Imagem padrão (Opcional)',
+                                          style: const TextStyle(
+                                            fontFamily: 'Fredoka',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: () => pickImage(ImageSource.camera),
+                                              icon: const Icon(Icons.camera_alt_outlined, size: 14),
+                                              label: Text(
+                                                hasPhoto ? 'Trocar (Câmera)' : 'Câmera',
+                                                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                minimumSize: Size.zero,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                foregroundColor: DsColors.primaryBlue,
+                                                side: BorderSide(color: DsColors.primaryBlue.withOpacity(0.4)),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                            ),
+                                            OutlinedButton.icon(
+                                              onPressed: () => pickImage(ImageSource.gallery),
+                                              icon: const Icon(Icons.photo_library_outlined, size: 14),
+                                              label: Text(
+                                                hasPhoto ? 'Substituir' : 'Galeria',
+                                                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                minimumSize: Size.zero,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                foregroundColor: DsColors.primaryBlue,
+                                                side: BorderSide(color: DsColors.primaryBlue.withOpacity(0.4)),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                            ),
+                                            if (hasPhoto)
+                                              TextButton.icon(
+                                                onPressed: () {
+                                                  setModalState(() {
+                                                    photoUrl = null;
+                                                  });
+                                                },
+                                                icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                                                label: const Text(
+                                                  'Remover',
+                                                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                                ),
+                                                style: TextButton.styleFrom(
+                                                  minimumSize: Size.zero,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  foregroundColor: Colors.red.shade600,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2. NOME COMPLETO OBRIGATÓRIO
                             TextField(
                               controller: nameController,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                              onChanged: (_) {
+                                if (errorMessage != null) {
+                                  setModalState(() => errorMessage = null);
+                                }
+                              },
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14.5),
                               decoration: InputDecoration(
-                                labelText: 'Nome Completo',
+                                labelText: 'Nome Completo *',
                                 labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
                                 hintText: 'Nome completo da criança',
+                                prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
                                 filled: true,
                                 fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
+
+                            // 2 & 6. IDADE OBRIGATÓRIA (TECLADO NUMÉRICO, 4 A 11 ANOS) + NASCIMENTO OPCIONAL
                             Row(
                               children: [
                                 Expanded(
                                   child: TextField(
                                     controller: ageController,
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                    keyboardType: const TextInputType.numberWithOptions(signed: false, decimal: false),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(2),
+                                    ],
+                                    textInputAction: TextInputAction.done,
+                                    onChanged: (_) {
+                                      setModalState(() {
+                                        errorMessage = null;
+                                      });
+                                    },
+                                    onSubmitted: (_) => handleSaveStudent(),
+                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 14.5),
                                     decoration: InputDecoration(
-                                      labelText: 'Idade',
+                                      labelText: 'Idade (4 a 11) *',
                                       labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
                                       hintText: 'Ex: 6',
+                                      prefixIcon: const Icon(Icons.cake_outlined, size: 17),
                                       filled: true,
                                       fillColor: Colors.grey.shade50,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: InkWell(
                                     onTap: () async {
                                       final now = DateTime.now();
                                       final selected = await showDatePicker(
                                         context: context,
-                                        initialDate: now.subtract(const Duration(days: 365 * 6)),
-                                        firstDate: DateTime(2010),
-                                        lastDate: now,
+                                        initialDate: DateTime(now.year - 6, now.month, now.day),
+                                        firstDate: DateTime(now.year - 12, 1, 1),
+                                        lastDate: DateTime(now.year - 4, 12, 31),
                                         builder: (context, child) {
                                           return Theme(
                                             data: Theme.of(context).copyWith(
@@ -235,24 +495,31 @@ class _AdminScreenState extends State<AdminScreen> {
                                         final day = selected.day.toString().padLeft(2, '0');
                                         final month = selected.month.toString().padLeft(2, '0');
                                         final formatted = '$day/$month/${selected.year}';
+                                        int calcAge = now.year - selected.year;
+                                        if (now.month < selected.month || (now.month == selected.month && now.day < selected.day)) {
+                                          calcAge--;
+                                        }
                                         setModalState(() {
                                           birthDateController.text = formatted;
+                                          if (calcAge >= 4 && calcAge <= 11) {
+                                            ageController.text = calcAge.toString();
+                                            errorMessage = null;
+                                          }
                                         });
-                                        checkChanges();
                                       }
                                     },
                                     child: IgnorePointer(
                                       child: TextField(
                                         controller: birthDateController,
-                                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 13.5),
                                         decoration: InputDecoration(
-                                          labelText: 'Nascimento',
-                                          labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
+                                          labelText: 'Nascimento (Opc.)',
+                                          labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 12.5),
                                           hintText: 'DD/MM/AAAA',
                                           prefixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: DsColors.primaryBlue),
                                           filled: true,
                                           fillColor: Colors.grey.shade50,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
                                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
@@ -263,55 +530,129 @@ class _AdminScreenState extends State<AdminScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: classController,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'Turma',
-                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                hintText: 'Ex: Juniores, Primários',
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
+                            const SizedBox(height: 8),
+
+                            // 3. CLASSIFICAÇÃO AUTOMÁTICA PELA FAIXA ETÁRIA (SEM ESCOLHA MANUAL DE TURMA)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: isValidAge ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isValidAge ? const Color(0xFFBFDBFE) : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 16,
+                                    color: isValidAge ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      isValidAge
+                                          ? 'Faixa etária automática: $classifiedGroup'
+                                          : 'A faixa etária (4–7 ou 8–11 anos) será classificada automaticamente pela idade.',
+                                      style: TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: isValidAge ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: photoController,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'Foto do Aluno',
-                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                hintText: 'Link público da imagem',
-                                helperText: 'Cole o link público da imagem ou selecione uma foto.',
-                                helperStyle: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF64748B)),
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
+                            const SizedBox(height: 12),
+
+                            // 5. PROTEGER DADOS SENSÍVEIS (ALERGIAS / CUIDADOS ESPECIAIS OPCIONAIS E RESTRITOS)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
                               ),
-                            ),
-                            const SizedBox(height: 14),
-                            TextField(
-                              controller: alertController,
-                              maxLines: 4,
-                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'Observações',
-                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                hintText: 'Alergias, restrições ou informações importantes.',
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DsColors.primaryBlue, width: 2)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () {
+                                      setModalState(() {
+                                        showSensitiveSection = !showSensitiveSection;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.lock_person_rounded, size: 17, color: Color(0xFFD97706)),
+                                          const SizedBox(width: 8),
+                                          const Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Alergias e Cuidados Especiais (Opcional)',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Fredoka',
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF92400E),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Acesso restrito a professores e responsáveis autorizados',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Nunito',
+                                                    fontSize: 11,
+                                                    color: Color(0xFFB45309),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            showSensitiveSection
+                                                ? Icons.keyboard_arrow_up_rounded
+                                                : Icons.keyboard_arrow_down_rounded,
+                                            color: const Color(0xFFD97706),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (showSensitiveSection)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                      child: TextField(
+                                        controller: alertController,
+                                        maxLines: 2,
+                                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                        decoration: InputDecoration(
+                                          hintText: 'Ex: Alergia a amendoim / intolerância à lactose...',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ],
@@ -319,81 +660,47 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                     ),
                     
-                    // RODAPÉ FIXO DE AÇÕES
+                    // 1. RODAPÉ FIXO DE AÇÕES (CANCELAR + SALVAR ALUNO)
                     const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
                             style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
                               foregroundColor: const Color(0xFF64748B),
-                              side: BorderSide(color: Colors.grey.shade200),
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            child: const Text('Cancelar', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14)),
+                            child: const Text('Cancelar', style: TextStyle(fontFamily: 'Fredoka', fontSize: 13)),
                           ),
-                          ElevatedButton(
-                            onPressed: !hasChanges ? null : () async {
-                              final name = nameController.text.trim();
-                              final rawAge = int.tryParse(ageController.text.trim()) ?? 0;
-                              final birthDate = birthDateController.text.trim();
-                              final classRoom = classController.text.trim();
-                              final rawPhoto = photoController.text.trim();
-                              final alert = alertController.text.trim();
-
-                              if (name.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Por favor, preencha o Nome.')),
-                                );
-                                return;
-                              }
-
-                              final photoUrl = _cleanDriveUrl(rawPhoto);
-
-                              final newStudent = Student(
-                                id: student?.id,
-                                name: name,
-                                age: rawAge,
-                                turma: classRoom.isEmpty ? null : classRoom,
-                                photoUrl: photoUrl.isEmpty ? null : photoUrl,
-                                alertMessage: alert.isEmpty ? null : alert,
-                                points: student?.points ?? 0,
-                                avatarPath: student?.avatarPath ?? 'assets/images/mascot/poses/idle.png',
-                                teamId: student?.teamId,
-                                birthDate: birthDate.isEmpty ? null : birthDate,
-                              );
-
-                              if (student == null) {
-                                await DatabaseHelper.instance.insertStudent(newStudent);
-                              } else {
-                                await DatabaseHelper.instance.updateStudent(newStudent);
-                              }
-
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('✓ Aluno atualizado com sucesso.'),
-                                    backgroundColor: Colors.green,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                              _loadStudents();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: Size.zero,
-                              backgroundColor: DsColors.primaryBlue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: isSaving ? null : handleSaveStudent,
+                              icon: isSaving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.check_circle_rounded, size: 18),
+                              label: Text(
+                                isSaving ? 'Salvando...' : 'Salvar Aluno',
+                                style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 46),
+                                backgroundColor: DsColors.primaryBlue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
                             ),
-                            child: const Text('Salvar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 14)),
                           ),
                         ],
                       ),
@@ -410,37 +717,22 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isAuthenticated) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.security_rounded, size: 64, color: AppColors.alerta),
-              SizedBox(height: 16),
-              Text('Acesso Restrito', style: TextStyle(fontFamily: 'Fredoka', fontSize: 24, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              Text('Apenas o Administrador pode acessar esta área.', style: TextStyle(fontFamily: 'Nunito', color: Colors.grey)),
-            ],
-          ),
-        ),
-      );
-    }
+    final tabCount = _isCoordinator ? 4 : 2;
 
     return DefaultTabController(
-      length: 4,
+      key: ValueKey('tabs_$tabCount'),
+      length: tabCount,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Painel Administrativo 🇨🇭',
-                style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+                _isCoordinator ? 'Painel Administrativo 🇨🇭' : 'Alunos e Turma 🇨🇭',
+                style: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
               ),
-              Text(
+              const Text(
                 'Gestão da escola bíblica infantil',
                 style: TextStyle(fontFamily: 'Nunito', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
               ),
@@ -448,27 +740,34 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
-            onPressed: () {
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-          bottom: const TabBar(
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
+                  },
+                )
+              : null,
+          bottom: TabBar(
             labelColor: DsColors.primaryBlue,
-            unselectedLabelColor: Color(0xFF64748B),
+            unselectedLabelColor: const Color(0xFF64748B),
             indicatorColor: DsColors.primaryBlue,
             indicatorWeight: 3,
-            labelStyle: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 11),
-            unselectedLabelStyle: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.normal, fontSize: 11),
-            tabs: [
-              Tab(icon: Icon(Icons.people_rounded, size: 20), text: 'Alunos'),
-              Tab(icon: Icon(Icons.admin_panel_settings_rounded, size: 20), text: 'Professores'),
-              Tab(icon: Icon(Icons.bar_chart_rounded, size: 20), text: 'Dashboard'),
-              Tab(icon: Icon(Icons.settings_rounded, size: 20), text: 'Ajustes'),
-            ],
+            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold, fontSize: 11),
+            unselectedLabelStyle: const TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.normal, fontSize: 11),
+            tabs: _isCoordinator
+                ? const [
+                    Tab(icon: Icon(Icons.people_rounded, size: 20), text: 'Alunos'),
+                    Tab(icon: Icon(Icons.admin_panel_settings_rounded, size: 20), text: 'Professores'),
+                    Tab(icon: Icon(Icons.bar_chart_rounded, size: 20), text: 'Dashboard'),
+                    Tab(icon: Icon(Icons.settings_rounded, size: 20), text: 'Ajustes'),
+                  ]
+                : const [
+                    Tab(icon: Icon(Icons.people_rounded, size: 20), text: 'Alunos'),
+                    Tab(icon: Icon(Icons.bar_chart_rounded, size: 20), text: 'Dashboard'),
+                  ],
           ),
           actions: [
             Padding(
@@ -586,12 +885,17 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                   Expanded(
                     child: TabBarView(
-                      children: [
-                        _students.isEmpty ? _buildEmptyState() : _buildStudentsList(),
-                        _buildProfessoresTab(),
-                        _buildReportsTab(),
-                        _buildConfigTab(),
-                      ],
+                      children: _isCoordinator
+                          ? [
+                              _students.isEmpty ? _buildEmptyState() : _buildStudentsList(),
+                              _buildProfessoresTab(),
+                              _buildReportsTab(),
+                              _buildConfigTab(),
+                            ]
+                          : [
+                              _students.isEmpty ? _buildEmptyState() : _buildStudentsList(),
+                              _buildReportsTab(),
+                            ],
                     ),
                   ),
                 ],
@@ -874,6 +1178,11 @@ class _AdminScreenState extends State<AdminScreen> {
                       );
                     },
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
+                    tooltip: 'Excluir Professor',
+                    onPressed: () => _confirmDeleteTeacher(docId, (data['nome'] ?? 'Professor').toString()),
+                  ),
                 ],
               ),
             );
@@ -881,6 +1190,158 @@ class _AdminScreenState extends State<AdminScreen> {
         );
       },
     );
+  }
+
+  Future<void> _confirmDeleteTeacher(String docId, String teacherName) async {
+    bool deleteLessons = false;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Excluir Professor ⚠️',
+                        style: TextStyle(
+                          fontFamily: 'Fredoka',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Tem certeza que deseja excluir o cadastro de "$teacherName"?',
+                        style: const TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 14,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          setDialogState(() {
+                            deleteLessons = !deleteLessons;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: deleteLessons,
+                                activeColor: Colors.red,
+                                onChanged: (val) {
+                                  setDialogState(() {
+                                    deleteLessons = val ?? false;
+                                  });
+                                },
+                              ),
+                              const Expanded(
+                                child: Text(
+                                  'Excluir também as aulas separadas deste professor',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(
+                                fontFamily: 'Fredoka',
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                            label: const Text(
+                              'Excluir',
+                              style: TextStyle(
+                                fontFamily: 'Fredoka',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      try {
+        await DatabaseHelper.instance.deleteTeacher(docId, deleteLessons: deleteLessons);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                deleteLessons
+                    ? '🗑️ Professor "$teacherName" e suas aulas foram excluídos.'
+                    : '🗑️ Professor "$teacherName" excluído com sucesso.',
+              ),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao excluir professor: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildReportsTab() {
@@ -1207,6 +1668,7 @@ class _AdminScreenState extends State<AdminScreen> {
       itemCount: _students.length,
       itemBuilder: (context, index) {
         final student = _students[index];
+        final hasSensitiveData = student.alertMessage != null && student.alertMessage!.trim().isNotEmpty;
         return Card(
           elevation: 1,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade100)),
@@ -1217,15 +1679,42 @@ class _AdminScreenState extends State<AdminScreen> {
               leading: CircleAvatar(
                 radius: 22,
                 backgroundColor: Colors.transparent,
-                backgroundImage: student.photoUrl != null && student.photoUrl!.isNotEmpty
-                    ? NetworkImage(ImageHelper.getProxiedImageUrl(student.photoUrl)) as ImageProvider
-                    : const AssetImage('assets/images/mascot/poses/idle.png') as ImageProvider,
+                backgroundImage: _getStudentImageProvider(student.photoUrl),
               ),
-              title: Text(student.name, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      student.name,
+                      style: const TextStyle(fontFamily: 'Fredoka', fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ),
+                  if (hasSensitiveData)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_person_rounded, size: 11, color: Color(0xFFD97706)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Cuidado restrito',
+                            style: TextStyle(fontFamily: 'Fredoka', fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
-                  'Turma: ${student.turma ?? "Não informada"}\nIdade: ${student.age} anos',
+                  'Faixa etária: ${student.ageGroupLabel} • Idade: ${student.age} anos',
                   style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B), height: 1.3),
                 ),
               ),
@@ -1234,10 +1723,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                    tooltip: 'Editar aluno',
                     onPressed: () => _showStudentFormModal(student),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                    tooltip: 'Excluir aluno',
                     onPressed: () async {
                       final confirm = await showDialog<bool>(
                         context: context,
@@ -1262,7 +1753,12 @@ class _AdminScreenState extends State<AdminScreen> {
                                       const SizedBox(width: 8),
                                       ElevatedButton(
                                         onPressed: () => Navigator.pop(context, true),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size.zero,
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                          backgroundColor: Colors.red,
+                                          foregroundColor: Colors.white,
+                                        ),
                                         child: const Text('Sim', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
                                       ),
                                     ],

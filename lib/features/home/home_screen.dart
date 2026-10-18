@@ -197,13 +197,20 @@ class _DashboardContentState extends State<DashboardContent> {
 
     final students = await DatabaseHelper.instance.fetchAllStudents();
     final presentIds = prefs.getStringList('present_student_ids') ?? [];
+    final savedDate = prefs.getString('attendance_date') ?? '';
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
     final allIds = students.map((e) => e.id.toString()).toSet();
     final actualPresentIds = presentIds.where((id) => allIds.contains(id)).toSet();
 
-    // Absent students
-    final absents = students.where((s) => !actualPresentIds.contains(s.id.toString())).toList();
+    final bool isTodayAttendance =
+        actualPresentIds.isNotEmpty && (savedDate.isEmpty || savedDate == todayStr);
+    final int totalStudents = students.length;
+    final int presentCount = isTodayAttendance ? actualPresentIds.length : 0;
+    final int absentCount = isTodayAttendance
+        ? (totalStudents - presentCount).clamp(0, totalStudents)
+        : 0;
 
-    // Birthdays this week (or month)
+    // Birthdays this month
     final now = DateTime.now();
     final currentMonthStr = now.month.toString().padLeft(2, '0');
     final birthdays = students.where((s) {
@@ -217,8 +224,11 @@ class _DashboardContentState extends State<DashboardContent> {
 
     return {
       'prayers': prayers,
-      'absents': absents,
       'birthdays': birthdays,
+      'totalStudents': totalStudents,
+      'presentCount': presentCount,
+      'absentCount': absentCount,
+      'chamadaRealizada': isTodayAttendance,
     };
   }
 
@@ -313,270 +323,191 @@ class _DashboardContentState extends State<DashboardContent> {
 
         SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).padding.bottom + 24),
+          padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.of(context).padding.bottom + 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SafeArea(bottom: false, child: _buildHeader(context, userName, fotoUrl)),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               
               // Hero Card: Boas-Vindas + Mascot
               _buildWelcomeHeroCard(userName),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              // HeroActionCard Unificado (Hoje na Aula + Versículo + Ação)
+              // HeroActionCard Unificado (Hoje na Aula + Versículo + Ação da Aula)
               _buildHeroActionCard(context),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              // Grid de 2 Colunas: Turma de Hoje e Próxima Atividade
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: _buildClassTodayCard(context)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildNextActivityCard(context)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Card da Turma de Hoje (Único ponto de chamada no início)
+              _buildClassTodayCard(context),
+              const SizedBox(height: 12),
 
-              // Murais Auxiliares
+              // Murais Auxiliares Compactos
               const Text(
                 'Mural da Salinha 📌',
                 style: TextStyle(
                   fontFamily: 'Fredoka',
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0F172A),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               FutureBuilder<Map<String, dynamic>>(
                 future: _fetchMuraisData(),
                 builder: (context, snapshot) {
-                  final data = snapshot.data ?? {'prayers': <String>[], 'absents': [], 'birthdays': []};
-                  final List<String> prayers = List<String>.from(data['prayers']);
-                  final List absents = data['absents'];
-                  final List birthdays = data['birthdays'];
+                  final data = snapshot.data ?? {
+                    'birthdays': const [],
+                    'totalStudents': 0,
+                    'presentCount': 0,
+                    'absentCount': 0,
+                    'chamadaRealizada': false,
+                  };
+                  final List birthdays = data['birthdays'] ?? const [];
+                  final int totalStudents = (data['totalStudents'] as int?) ?? 0;
+                  final int presentCount = (data['presentCount'] as int?) ?? 0;
+                  final int absentCount = (data['absentCount'] as int?) ?? 0;
+                  final bool chamadaRealizada = (data['chamadaRealizada'] as bool?) ?? false;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. Mural de Aniversariantes
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: DsRadius.large,
-                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-                          boxShadow: _floatingShadow(),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.cake_rounded, color: Colors.purpleAccent, size: 18),
-                                SizedBox(width: 6),
-                                Text('Aniversariantes', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            if (birthdays.isEmpty)
-                              Row(
-                                children: const [
-                                  Text('🎂', style: TextStyle(fontSize: 14)),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Nenhum aniversariante esta semana 🎂',
-                                      style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: birthdays.map((s) => Chip(
-                                  label: Text('${s.name} (${s.birthDate?.substring(0, 5)})', style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11, color: Color(0xFF7E22CE))),
-                                  backgroundColor: const Color(0xFFF3E8FF),
-                                  side: BorderSide.none,
-                                  padding: EdgeInsets.zero,
-                                )).toList(),
+                  String attendanceStatusText;
+                  Color statusBgColor;
+                  Color statusTextColor;
+                  IconData statusIcon;
+
+                  if (totalStudents == 0) {
+                    attendanceStatusText = 'Nenhum aluno cadastrado na turma ainda.';
+                    statusBgColor = const Color(0xFFF8FAFC);
+                    statusTextColor = const Color(0xFF64748B);
+                    statusIcon = Icons.info_outline_rounded;
+                  } else if (!chamadaRealizada) {
+                    attendanceStatusText = 'Chamada ainda não registada • $totalStudents alunos na turma';
+                    statusBgColor = const Color(0xFFFFFBEB);
+                    statusTextColor = const Color(0xFFB45309);
+                    statusIcon = Icons.schedule_rounded;
+                  } else if (absentCount == 0) {
+                    attendanceStatusText = 'Chamada concluída • Todos os $totalStudents alunos presentes 🎉';
+                    statusBgColor = const Color(0xFFECFDF5);
+                    statusTextColor = const Color(0xFF047857);
+                    statusIcon = Icons.check_circle_outline_rounded;
+                  } else {
+                    attendanceStatusText =
+                        'Chamada concluída • $presentCount presentes e $absentCount ${absentCount == 1 ? 'ausência registada' : 'ausências registadas'}';
+                    statusBgColor = const Color(0xFFF0FDF4);
+                    statusTextColor = const Color(0xFF15803D);
+                    statusIcon = Icons.fact_check_outlined;
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: DsRadius.large,
+                      border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+                      boxShadow: _floatingShadow(),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.cake_rounded, color: Colors.purpleAccent, size: 17),
+                            SizedBox(width: 6),
+                            Text(
+                              'Aniversariantes',
+                              style: TextStyle(
+                                fontFamily: 'Fredoka',
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
                               ),
+                            ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 2. Mural de Pedidos de Oração
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: DsRadius.large,
-                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-                          boxShadow: _floatingShadow(),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: const [
-                                    Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 18),
-                                    SizedBox(width: 6),
-                                    Text('Pedidos de Oração', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                                  ],
+                        const SizedBox(height: 6),
+                        if (birthdays.isEmpty)
+                          Row(
+                            children: const [
+                              Text('🎂', style: TextStyle(fontSize: 13)),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Nenhum aniversariante este mês',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 12.5,
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                if (prayers.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.azulCeleste, size: 20),
-                                    onPressed: () => _showAddPrayerDialog(context),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            if (prayers.isEmpty)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Nenhum pedido cadastrado', style: TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 10),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _showAddPrayerDialog(context),
-                                      icon: const Icon(Icons.add_rounded, size: 16),
-                                      label: const Text('Registrar Oração', style: TextStyle(fontFamily: 'Fredoka', fontSize: 12, fontWeight: FontWeight.bold)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.azulCeleste,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: prayers.length,
-                                itemBuilder: (context, i) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 6.0),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.lens, size: 6, color: Colors.redAccent),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            prayers[i],
-                                            style: const TextStyle(fontFamily: 'Nunito', fontSize: 13, color: Color(0xFF334155), fontWeight: FontWeight.w600),
-                                          ),
+                              ),
+                            ],
+                          )
+                        else
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: birthdays
+                                .map((s) => Chip(
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      label: Text(
+                                        '${s.name} (${s.birthDate != null && s.birthDate!.length >= 5 ? s.birthDate!.substring(0, 5) : ''})',
+                                        style: const TextStyle(
+                                          fontFamily: 'Fredoka',
+                                          fontSize: 11,
+                                          color: Color(0xFF7E22CE),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.grey),
-                                          onPressed: () async {
-                                            final prefs = await SharedPreferences.getInstance();
-                                            prayers.removeAt(i);
-                                            await prefs.setStringList('prayer_requests', prayers);
-                                            setState(() {});
-                                          },
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                        )
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 3. Mural de Ausências
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: DsRadius.large,
-                          border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-                          boxShadow: _floatingShadow(),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.flag_rounded, color: Colors.orangeAccent, size: 18),
-                                SizedBox(width: 6),
-                                Text('Ausências / Faltas', style: TextStyle(fontFamily: 'Fredoka', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            if (absents.isEmpty)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFECFDF5),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: const [
-                                    Text('🎉', style: TextStyle(fontSize: 14)),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Toda a turma presente! 🎉',
-                                        style: TextStyle(fontFamily: 'Fredoka', fontSize: 13, color: Color(0xFF047857), fontWeight: FontWeight.bold),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${absents.length} alunos ausentes hoje:',
-                                    style: const TextStyle(fontFamily: 'Nunito', fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: absents.map((s) => Chip(
-                                      label: Text(s.name, style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11, color: Color(0xFFC2410C))),
-                                      backgroundColor: const Color(0xFFFFE5D9),
+                                      backgroundColor: const Color(0xFFF3E8FF),
                                       side: BorderSide.none,
                                       padding: EdgeInsets.zero,
-                                    )).toList(),
-                                  ),
-                                ],
+                                    ))
+                                .toList(),
+                          ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        ),
+                        Row(
+                          children: [
+                            Icon(statusIcon, color: statusTextColor, size: 16),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Estado da Chamada',
+                              style: TextStyle(
+                                fontFamily: 'Fredoka',
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
                               ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: statusBgColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            attendanceStatusText,
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 12.5,
+                              color: statusTextColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -912,7 +843,7 @@ class _DashboardContentState extends State<DashboardContent> {
     );
   }
 
-  // --- CARD BOAS-VINDAS COM MASCOTE GIGANTE ---
+  // --- CARD BOAS-VINDAS COMPACTO COM MASCOTE ---
   Widget _buildWelcomeHeroCard(String userName) {
     final firstName = userName.split(' ').first;
     
@@ -921,7 +852,7 @@ class _DashboardContentState extends State<DashboardContent> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 20, 130, 20),
+          padding: const EdgeInsets.fromLTRB(16, 14, 110, 14),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.9),
             borderRadius: DsRadius.large,
@@ -933,16 +864,16 @@ class _DashboardContentState extends State<DashboardContent> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Bom dia,\n$firstName!',
+                'Bom dia, $firstName!',
                 style: const TextStyle(
                   fontFamily: 'Fredoka',
-                  fontSize: 24,
-                  height: 1.1,
+                  fontSize: 20,
+                  height: 1.15,
                   color: Color(0xFF3B82F6),
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Text(
                 'Tudo pronto para a salinha hoje?',
                 style: TextStyle(
@@ -955,20 +886,20 @@ class _DashboardContentState extends State<DashboardContent> {
             ],
           ),
         ),
-        Positioned(
-          right: 5,
-          bottom: -8,
-          child: const MascotWidget(
+        const Positioned(
+          right: 6,
+          bottom: -6,
+          child: MascotWidget(
             pose: MascotPose.front,
-            height: 155,
-            width: 125,
+            height: 112,
+            width: 92,
           ),
         ),
       ],
     );
   }
 
-  // --- HERO ACTION CARD UNIFICADO ---
+  // --- HERO ACTION CARD UNIFICADO (SEM DUPLICAR CHAMADA) ---
   Widget _buildHeroActionCard(BuildContext context) {
     return FutureBuilder<List<LessonPlan>>(
       future: widget.lessonPlansFuture,
@@ -978,26 +909,41 @@ class _DashboardContentState extends State<DashboardContent> {
         final latestPlan = hasPlan ? planList.first : null;
         
         final title = latestPlan != null ? latestPlan.title : 'Nenhuma aula ativa';
-        final verse = latestPlan != null ? latestPlan.keyVerse : 'Seja forte e corajoso! Não se apavore, nem desanime...';
+        final verse = latestPlan != null
+            ? latestPlan.keyVerse
+            : 'Seja forte e corajoso! Não se apavore, nem desanime...';
 
         return FutureBuilder<SharedPreferences>(
           future: SharedPreferences.getInstance(),
           builder: (context, prefsSnapshot) {
-            bool chamadaConcluida = false;
-            if (prefsSnapshot.hasData && prefsSnapshot.data != null) {
-              final presentIds = prefsSnapshot.data!.getStringList('present_student_ids') ?? [];
-              chamadaConcluida = presentIds.isNotEmpty;
+            int savedStep = latestPlan?.lastStepIndex ?? 0;
+            bool isCompleted = latestPlan?.isCompleted ?? false;
+
+            if (latestPlan != null && prefsSnapshot.hasData && prefsSnapshot.data != null) {
+              final prefs = prefsSnapshot.data!;
+              final key = latestPlan.id != null
+                  ? 'id_${latestPlan.id}'
+                  : ' custom_${latestPlan.seriesId}_${latestPlan.lessonNumber}_${latestPlan.title.hashCode}';
+              savedStep = prefs.getInt('lesson_step_$key') ?? savedStep;
+              isCompleted = (prefs.getBool('lesson_completed_$key') ?? false) || isCompleted;
             }
 
-            final badgeText = chamadaConcluida 
-                ? 'Aula pronta para começar!' 
-                : 'Aguardando chamada de hoje';
-            final badgeColor = chamadaConcluida 
-                ? const Color(0xFF10B981) 
-                : const Color(0xFFF59E0B);
-            final actionType = chamadaConcluida 
-                ? HeroActionType.startClass 
-                : HeroActionType.startAttendance;
+            final bool inProgress = latestPlan != null && (savedStep > 0 || isCompleted);
+            final String badgeText = latestPlan == null
+                ? 'Planejamento pendente'
+                : (isCompleted
+                    ? 'Aula concluída ✓'
+                    : (savedStep > 0
+                        ? 'Aula em andamento (Etapa ${savedStep + 1}/5)'
+                        : 'Aula pronta para começar!'));
+            final Color badgeColor = latestPlan == null
+                ? const Color(0xFFF59E0B)
+                : (inProgress && !isCompleted
+                    ? const Color(0xFF3B82F6)
+                    : const Color(0xFF10B981));
+            final HeroActionType actionType = inProgress
+                ? HeroActionType.continueClass
+                : HeroActionType.startClass;
 
             return HeroActionCard(
               title: title,
@@ -1005,29 +951,23 @@ class _DashboardContentState extends State<DashboardContent> {
               badgeText: badgeText,
               badgeColor: badgeColor,
               actionType: actionType,
-              onActionPressed: () {
-                if (!chamadaConcluida) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ChamadaScreen()),
-                  );
-                } else {
-                  if (latestPlan != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TeacherPreparationScreen(
-                          plan: latestPlan,
-                          onStartClass: () {
-                            widget.onSwitchTab(1); // Mudar aba para Modo Aula (tab index 1)
-                          },
+              onStudyPressed: latestPlan == null
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TeacherPreparationScreen(
+                            plan: latestPlan,
+                            onStartClass: () {
+                              widget.onSwitchTab(1);
+                            },
+                          ),
                         ),
-                      ),
-                    );
-                  } else {
-                    widget.onSwitchTab(1);
-                  }
-                }
+                      );
+                    },
+              onActionPressed: () {
+                widget.onSwitchTab(1);
               },
             );
           },
@@ -1036,94 +976,159 @@ class _DashboardContentState extends State<DashboardContent> {
     );
   }
 
-  // --- CARD TURMA DE HOJE ---
+  // --- CARD TURMA DE HOJE COMPACTO ---
   Widget _buildClassTodayCard(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
       future: _fetchClassTodayData(),
       builder: (context, snapshot) {
         final data = snapshot.data ?? {'teachers': 0, 'students': 0, 'present': 0};
         
-        return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChamadaScreen())),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2F7ED).withOpacity(0.95),
-              borderRadius: DsRadius.large,
-              border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-              boxShadow: _floatingShadow(),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.people_alt_rounded, color: Color(0xFF10B981), size: 18),
-                    SizedBox(width: 6),
-                    Text(
-                      'Turma de Hoje',
-                      style: TextStyle(
-                        fontFamily: 'Fredoka',
-                        fontSize: 14,
-                        color: Color(0xFF1E293B),
-                        fontWeight: FontWeight.bold,
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE2F7ED).withOpacity(0.95),
+            borderRadius: DsRadius.large,
+            border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
+            boxShadow: _floatingShadow(),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.people_alt_rounded, color: Color(0xFF10B981), size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        'Turma de Hoje',
+                        style: TextStyle(
+                          fontFamily: 'Fredoka',
+                          fontSize: 14,
+                          color: Color(0xFF1E293B),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildStatRow('Professores', '${data['teachers']}'),
-                    const SizedBox(height: 4),
-                    _buildStatRow('Alunos', '${data['students']}'),
-                    const SizedBox(height: 4),
-                    _buildStatRow('Presentes', '${data['present']} de ${data['students']}'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF34D399), Color(0xFF059669)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: DsElevation.glow(const Color(0xFF10B981)),
+                    ],
                   ),
-                  child: const Text(
-                    'Abrir Chamada',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
+                  Text(
+                    'Presentes: ${data['present']} de ${data['students']}',
+                    style: const TextStyle(
                       fontFamily: 'Fredoka',
-                      color: Colors.white,
                       fontSize: 12,
+                      color: Color(0xFF047857),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.65),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
-            ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildCompactStatItem('Professores', '${data['teachers']}'),
+                    Container(width: 1, height: 20, color: const Color(0xFFCBD5E1)),
+                    _buildCompactStatItem('Alunos', '${data['students']}'),
+                    Container(width: 1, height: 20, color: const Color(0xFFCBD5E1)),
+                    _buildCompactStatItem('Presentes', '${data['present']}/${data['students']}'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ChamadaScreen()),
+                        );
+                        if (mounted) setState(() {});
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF34D399), Color(0xFF059669)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: DsElevation.glow(const Color(0xFF10B981)),
+                        ),
+                        child: const Text(
+                          'Abrir Chamada',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChamadaScreen(openAddStudentOnLoad: true),
+                          ),
+                        );
+                        if (mounted) setState(() {});
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF059669), width: 1.2),
+                        ),
+                        child: const Text(
+                          '+ Adicionar Aluno',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Fredoka',
+                            color: Color(0xFF059669),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       }
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
+  Widget _buildCompactStatItem(String label, String value) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          label,
+          '$label: ',
           style: const TextStyle(
             fontFamily: 'Nunito',
             fontSize: 11,
-            color: Color(0xFF64748B),
+            color: Color(0xFF475569),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1132,7 +1137,7 @@ class _DashboardContentState extends State<DashboardContent> {
           style: const TextStyle(
             fontFamily: 'Fredoka',
             fontSize: 12,
-            color: Color(0xFF1E293B),
+            color: Color(0xFF0F172A),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -1170,79 +1175,6 @@ class _DashboardContentState extends State<DashboardContent> {
     };
   }
 
-  // --- CARD PRÓXIMA ATIVIDADE ---
-  Widget _buildNextActivityCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE3CE).withOpacity(0.95),
-        borderRadius: DsRadius.large,
-        border: Border.all(color: Colors.black.withOpacity(0.04), width: 0.5),
-        boxShadow: _floatingShadow(),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Central de Jogos & Dinâmicas',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Fredoka',
-              fontSize: 14,
-              color: Color(0xFF1E293B),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _floatingShadow(),
-            ),
-            child: const Icon(
-              Icons.sports_esports_rounded,
-              color: Color(0xFFFF8C00),
-              size: 20,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Acesse a arena com quizzes, roleta, equipes e dinâmicas interativas.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 11,
-              color: Color(0xFF475569),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesMenuScreen())),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DsColors.primaryBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              elevation: 0,
-            ),
-            child: const Text(
-              'Abrir Central de Jogos',
-              style: TextStyle(
-                fontFamily: 'Fredoka',
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
 
 
 

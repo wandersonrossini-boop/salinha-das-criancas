@@ -155,6 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
               await prefs.setBool('keep_logged_in', true);
             }
             await prefs.setString('user_role', 'coordenador');
+            await prefs.setString('user_id', 'admin');
+            await prefs.setString('user_name', 'Administrador');
             await prefs.setString('turmaId', '');
             if (mounted) {
               Navigator.pushReplacement(
@@ -188,6 +190,8 @@ class _LoginScreenState extends State<LoginScreen> {
               await prefs.setBool('keep_logged_in', true);
             }
             await prefs.setString('user_role', data['role'] ?? 'professor');
+            await prefs.setString('user_id', cred.user!.uid);
+            await prefs.setString('user_name', data['nome']?.toString() ?? 'Professor');
             await prefs.setString('turmaId', data['turmaId'] ?? '');
             if (mounted) {
               Navigator.pushReplacement(

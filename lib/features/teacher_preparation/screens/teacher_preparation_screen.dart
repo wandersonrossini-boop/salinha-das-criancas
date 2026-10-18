@@ -175,19 +175,7 @@ class _TeacherPreparationScreenState extends State<TeacherPreparationScreen> {
           theologicalCore: core.theologicalCore,
         );
 
-        final updatedPlan = LessonPlan(
-          id: _currentPlan.id,
-          title: _currentPlan.title,
-          ageGroup: _currentPlan.ageGroup,
-          objective: _currentPlan.objective,
-          keyVerse: _currentPlan.keyVerse,
-          storyTopics: _currentPlan.storyTopics,
-          questions: _currentPlan.questions,
-          dynamicActivity: _currentPlan.dynamicActivity,
-          prayer: _currentPlan.prayer,
-          ageProfile: _currentPlan.ageProfile,
-          supportsTeams: _currentPlan.supportsTeams,
-          stations: _currentPlan.stations,
+        final updatedPlan = _currentPlan.copyWith(
           biblicalCore: updatedCore,
         );
 
@@ -222,19 +210,7 @@ class _TeacherPreparationScreenState extends State<TeacherPreparationScreen> {
           theologicalCore: results['Coração Teológico']!,
         );
 
-        final updatedPlan = LessonPlan(
-          id: _currentPlan.id,
-          title: _currentPlan.title,
-          ageGroup: _currentPlan.ageGroup,
-          objective: _currentPlan.objective,
-          keyVerse: _currentPlan.keyVerse,
-          storyTopics: _currentPlan.storyTopics,
-          questions: _currentPlan.questions,
-          dynamicActivity: _currentPlan.dynamicActivity,
-          prayer: _currentPlan.prayer,
-          ageProfile: _currentPlan.ageProfile,
-          supportsTeams: _currentPlan.supportsTeams,
-          stations: _currentPlan.stations,
+        final updatedPlan = _currentPlan.copyWith(
           biblicalCore: updatedCore,
         );
 
@@ -250,20 +226,8 @@ class _TeacherPreparationScreenState extends State<TeacherPreparationScreen> {
         'Objetivo da Aula': _currentPlan.objective,
       },
       (results) {
-        final updatedPlan = LessonPlan(
-          id: _currentPlan.id,
-          title: _currentPlan.title,
-          ageGroup: _currentPlan.ageGroup,
+        final updatedPlan = _currentPlan.copyWith(
           objective: results['Objetivo da Aula']!,
-          keyVerse: _currentPlan.keyVerse,
-          storyTopics: _currentPlan.storyTopics,
-          questions: _currentPlan.questions,
-          dynamicActivity: _currentPlan.dynamicActivity,
-          prayer: _currentPlan.prayer,
-          ageProfile: _currentPlan.ageProfile,
-          supportsTeams: _currentPlan.supportsTeams,
-          stations: _currentPlan.stations,
-          biblicalCore: _currentPlan.biblicalCore,
         );
 
         _saveChanges(updatedPlan);
@@ -756,6 +720,7 @@ class _TeacherPreparationScreenState extends State<TeacherPreparationScreen> {
   }
 
   Widget _buildStationCard(MixedAgeStation station) {
+    final normalizedBand = MixedAgeStation.normalizeAgeBand(station.ageBand).replaceAll('-', '–');
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -784,7 +749,7 @@ class _TeacherPreparationScreenState extends State<TeacherPreparationScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Faixa ${station.ageBand}',
+                  'Faixa $normalizedBand anos',
                   style: const TextStyle(
                     fontFamily: 'Fredoka',
                     fontSize: 12,

@@ -13,6 +13,7 @@ class HeroActionCard extends StatelessWidget {
   final Color badgeColor;
   final HeroActionType actionType;
   final VoidCallback onActionPressed;
+  final VoidCallback? onStudyPressed;
 
   const HeroActionCard({
     super.key,
@@ -22,6 +23,7 @@ class HeroActionCard extends StatelessWidget {
     required this.badgeColor,
     required this.actionType,
     required this.onActionPressed,
+    this.onStudyPressed,
   });
 
   @override
@@ -90,7 +92,7 @@ class HeroActionCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // ÚNICO Botão de Ação Primária
+            // Botão Principal de Ação
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -114,6 +116,31 @@ class HeroActionCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (onStudyPressed != null) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E3A8A),
+                    side: const BorderSide(color: Color(0xFF93C5FD), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: onStudyPressed,
+                  icon: const Icon(Icons.school_rounded, size: 18),
+                  label: const Text(
+                    'Estudo do Professor (Preparar Aula)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

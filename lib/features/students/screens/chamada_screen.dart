@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/student.dart';
@@ -8,7 +9,9 @@ import '../../../core/components/image_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChamadaScreen extends StatefulWidget {
-  const ChamadaScreen({super.key});
+  final bool openAddStudentOnLoad;
+
+  const ChamadaScreen({super.key, this.openAddStudentOnLoad = false});
 
   @override
   State<ChamadaScreen> createState() => _ChamadaScreenState();
@@ -30,14 +33,18 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
   void initState() {
     super.initState();
     _loadStudents();
+    if (widget.openAddStudentOnLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showStudentModal();
+        }
+      });
+    }
   }
 
   Future<void> _loadStudents() async {
     final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('user_role');
-    final turmaId = role == 'professor' ? prefs.getString('turmaId') : null;
-
-    final students = await DatabaseHelper.instance.fetchAllStudents(turmaId);
+    final students = await DatabaseHelper.instance.fetchAllStudents();
 
     final date = DateTime.now().toIso8601String().split('T')[0];
     final savedDate = prefs.getString('attendance_date');
@@ -67,30 +74,119 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
     });
   }
 
+  void _showRestrictedCareDialog(Student student) {
+    if (student.alertMessage == null || student.alertMessage!.trim().isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.lock_person_rounded, color: Color(0xFFD97706), size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student.name,
+                            style: const TextStyle(
+                              fontFamily: 'Fredoka',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const Text(
+                            'Dados sensíveis • Acesso restrito ao professor',
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Text(
+                    student.alertMessage!,
+                    style: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                    backgroundColor: AppColors.azulCeleste,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Fechar', style: TextStyle(fontFamily: 'Fredoka', fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showStudentModal([Student? student]) {
     final nameController = TextEditingController(text: student?.name ?? '');
-    final ageController = TextEditingController(text: student?.age.toString() ?? '');
+    final ageController = TextEditingController(
+      text: (student != null && student.age >= 4 && student.age <= 11) ? student.age.toString() : '',
+    );
     final alertController = TextEditingController(text: student?.alertMessage ?? '');
-    String? photoUrl = student?.photoUrl;
+    String? photoUrl = (student?.photoUrl != null && student!.photoUrl!.trim().isNotEmpty)
+        ? student.photoUrl!.trim()
+        : null;
+    String? errorMessage;
+    bool isSaving = false;
+    bool showSensitiveSection = (student?.alertMessage != null && student!.alertMessage!.trim().isNotEmpty);
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Re-render dialog on text changes to update Save button contrast/status dynamically
-            nameController.addListener(() {
-              if (context.mounted) setDialogState(() {});
-            });
-            ageController.addListener(() {
-              if (context.mounted) setDialogState(() {});
-            });
+            final parsedAge = int.tryParse(ageController.text.trim());
+            final isValidAge = parsedAge != null && parsedAge >= 4 && parsedAge <= 11;
+            final classifiedGroup = isValidAge ? Student.classifyAgeGroup(parsedAge) : null;
+            final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
 
-            final name = nameController.text.trim();
-            final age = int.tryParse(ageController.text.trim()) ?? 0;
-            final isFormValid = name.isNotEmpty && age > 0;
-
-            Future<void> _pickImage(ImageSource source) async {
+            Future<void> pickImage(ImageSource source) async {
               try {
                 final picker = ImagePicker();
                 final pickedFile = await picker.pickImage(
@@ -107,12 +203,15 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                 }
               } catch (e) {
                 debugPrint('Erro ao selecionar imagem: $e');
+                setDialogState(() {
+                  errorMessage = 'Não foi possível carregar a imagem selecionada.';
+                });
               }
             }
 
-            ImageProvider _getAvatarImage() {
-              if (photoUrl == null || photoUrl!.trim().isEmpty) {
-                return const AssetImage('assets/images/maspot/poses/idle.png'); // fallback handled below
+            ImageProvider getAvatarImage() {
+              if (!hasPhoto) {
+                return const AssetImage('assets/images/mascot/poses/idle.png');
               }
               if (photoUrl!.startsWith('data:image')) {
                 try {
@@ -125,233 +224,555 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
               return NetworkImage(ImageHelper.getProxiedImageUrl(photoUrl));
             }
 
+            Future<void> handleSaveStudent() async {
+              if (isSaving) return;
+              final name = nameController.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+              final ageText = ageController.text.trim();
+              final age = int.tryParse(ageText);
+
+              // 2. Validar nome e idade (ambos obrigatórios; idade inteira entre 4 e 11)
+              final hasLetters = RegExp(r'[A-Za-zÀ-ÿ]').hasMatch(name);
+              if (name.isEmpty || name.length < 2 || !hasLetters) {
+                setDialogState(() {
+                  errorMessage = 'Informe um nome válido para o aluno (mínimo de 2 letras).';
+                });
+                return;
+              }
+
+              if (ageText.isEmpty || age == null || age < 4 || age > 11) {
+                setDialogState(() {
+                  errorMessage = 'Informe uma idade inteira válida entre 4 e 11 anos.';
+                });
+                return;
+              }
+
+              setDialogState(() {
+                isSaving = true;
+                errorMessage = null;
+              });
+
+              try {
+                final alert = alertController.text.trim();
+                // 3. Classificação automática pela faixa etária (4–7 ou 8–11 anos)
+                final autoAgeGroup = Student.classifyAgeGroup(age);
+
+                final newStudent = Student(
+                  id: student?.id,
+                  name: name,
+                  age: age,
+                  alertMessage: alert.isEmpty ? null : alert,
+                  points: student?.points ?? 0,
+                  photoUrl: hasPhoto ? photoUrl : null,
+                  avatarPath: student?.avatarPath ?? 'assets/images/mascot/poses/idle.png',
+                  turma: autoAgeGroup,
+                  teamId: student?.teamId,
+                  birthDate: student?.birthDate,
+                );
+
+                if (student == null) {
+                  await DatabaseHelper.instance.insertStudent(newStudent);
+                } else {
+                  await DatabaseHelper.instance.updateStudent(newStudent);
+                }
+
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        student == null
+                            ? '✓ Aluno "$name" ($autoAgeGroup) cadastrado com sucesso!'
+                            : '✓ Dados de "$name" ($autoAgeGroup) atualizados com sucesso!',
+                      ),
+                      backgroundColor: const Color(0xFF059669),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  _loadStudents();
+                }
+              } catch (e) {
+                setDialogState(() {
+                  isSaving = false;
+                  errorMessage = 'Não foi possível salvar os dados do aluno. Tente novamente.';
+                });
+              }
+            }
+
+            final screenHeight = MediaQuery.of(context).size.height;
+
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               elevation: 10,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 450),
-                child: SingleChildScrollView(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
-                          style: const TextStyle(
-                            fontFamily: 'Fredoka',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Seletor de Imagem e Avatar
-                        Center(
-                          child: Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 48,
-                                backgroundColor: Colors.grey.shade100,
-                                backgroundImage: photoUrl == null || photoUrl!.isEmpty
-                                    ? const AssetImage('assets/images/mascot/poses/idle.png') as ImageProvider
-                                    : _getAvatarImage(),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  TextButton.icon(
-                                    onPressed: () => _pickImage(ImageSource.camera),
-                                    icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                                    label: const Text(
-                                      'Tirar Foto',
-                                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 13),
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.azulCeleste,
-                                    ),
+                constraints: BoxConstraints(
+                  maxWidth: 440,
+                  maxHeight: screenHeight * 0.88,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. CABEÇALHO LIMPO (SEM BOTÃO DUPLICADO DE SALVAR)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  student == null ? '👶 Novo Aluno' : '✏️ Editar Aluno',
+                                  style: const TextStyle(
+                                    fontFamily: 'Fredoka',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 19,
+                                    color: Color(0xFF0F172A),
                                   ),
-                                  const SizedBox(width: 8),
-                                  TextButton.icon(
-                                    onPressed: () => _pickImage(ImageSource.gallery),
-                                    icon: const Icon(Icons.photo_library_outlined, size: 16),
-                                    label: const Text(
-                                      'Galeria',
-                                      style: TextStyle(fontFamily: 'Fredoka', fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Campos com * são obrigatórios (4 a 11 anos).',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                            tooltip: 'Fechar',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+                    // CORPO ROLÁVEL DO FORMULÁRIO (ADAPTADO PARA TELEMÓVEL)
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (errorMessage != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline_rounded, size: 18, color: Colors.red.shade700),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        errorMessage!,
+                                        style: TextStyle(
+                                          fontFamily: 'Nunito',
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red.shade700,
+                                        ),
+                                      ),
                                     ),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.azulCeleste,
+                                  ],
+                                ),
+                              ),
+
+                            // 4. FOTOGRAFIA OPCIONAL COM IMAGEM PADRÃO, SUBSTITUIR E REMOVER
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: Colors.white,
+                                    backgroundImage: getAvatarImage(),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          hasPhoto ? 'Fotografia personalizada' : 'Imagem padrão (Opcional)',
+                                          style: const TextStyle(
+                                            fontFamily: 'Fredoka',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              onPressed: () => pickImage(ImageSource.camera),
+                                              icon: const Icon(Icons.camera_alt_outlined, size: 14),
+                                              label: Text(
+                                                hasPhoto ? 'Trocar (Câmera)' : 'Câmera',
+                                                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                minimumSize: Size.zero,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                foregroundColor: AppColors.azulCeleste,
+                                                side: BorderSide(color: AppColors.azulCeleste.withOpacity(0.4)),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                            ),
+                                            OutlinedButton.icon(
+                                              onPressed: () => pickImage(ImageSource.gallery),
+                                              icon: const Icon(Icons.photo_library_outlined, size: 14),
+                                              label: Text(
+                                                hasPhoto ? 'Substituir' : 'Galeria',
+                                                style: const TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                minimumSize: Size.zero,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                foregroundColor: AppColors.azulCeleste,
+                                                side: BorderSide(color: AppColors.azulCeleste.withOpacity(0.4)),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                            ),
+                                            if (hasPhoto)
+                                              TextButton.icon(
+                                                onPressed: () {
+                                                  setDialogState(() {
+                                                    photoUrl = null;
+                                                  });
+                                                },
+                                                icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                                                label: const Text(
+                                                  'Remover',
+                                                  style: TextStyle(fontFamily: 'Fredoka', fontSize: 11.5),
+                                                ),
+                                                style: TextButton.styleFrom(
+                                                  minimumSize: Size.zero,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  foregroundColor: Colors.red.shade600,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                            ),
+                            const SizedBox(height: 12),
 
-                        TextField(
-                          controller: nameController,
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                          decoration: InputDecoration(
-                            labelText: 'Nome do Aluno',
-                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                            hintText: 'Digite o nome completo',
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextField(
-                          controller: ageController,
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Idade',
-                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                            hintText: 'Ex: 6',
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextField(
-                          controller: alertController,
-                          style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            labelText: 'Alergias / Cuidados Especiais',
-                            labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 14),
-                            hintText: 'Digite restrições alimentares, alergias ou cuidados importantes.',
-                            filled: true,
-                            fillColor: Colors.grey.shade50,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (student != null)
-                              TextButton(
-                                onPressed: () async {
-                                  await DatabaseHelper.instance.deleteStudent(student.id!);
-                                  if (context.mounted) Navigator.pop(context);
-                                  _loadStudents();
-                                },
-                                child: const Text(
-                                  'Excluir',
-                                  style: TextStyle(
-                                    fontFamily: 'Fredoka',
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            // 2. NOME OBRIGATÓRIO
+                            TextField(
+                              controller: nameController,
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                              onChanged: (_) {
+                                if (errorMessage != null) {
+                                  setDialogState(() => errorMessage = null);
+                                }
+                              },
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
+                              decoration: InputDecoration(
+                                labelText: 'Nome do Aluno *',
+                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13.5),
+                                hintText: 'Ex: Lucas Oliveira',
+                                prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
                                 ),
                               ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2 & 3. IDADE OBRIGATÓRIA (4 A 11 ANOS) + CLASSIFICAÇÃO AUTOMÁTICA DE FAIXA ETÁRIA
+                            TextField(
+                              controller: ageController,
+                              textInputAction: TextInputAction.done,
+                              keyboardType: const TextInputType.numberWithOptions(signed: false, decimal: false),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(2),
+                              ],
+                              onChanged: (_) {
+                                setDialogState(() {
+                                  errorMessage = null;
+                                });
+                              },
+                              onSubmitted: (_) => handleSaveStudent(),
+                              style: const TextStyle(fontFamily: 'Nunito', fontSize: 15),
+                              decoration: InputDecoration(
+                                labelText: 'Idade (4 a 11 anos) *',
+                                labelStyle: const TextStyle(fontFamily: 'Fredoka', fontSize: 13.5),
+                                hintText: 'Digite um número de 4 a 11',
+                                prefixIcon: const Icon(Icons.cake_outlined, size: 18),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppColors.azulCeleste, width: 2),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // 3. INDICADOR DE CLASSIFICAÇÃO AUTOMÁTICA PELA FAIXA ETÁRIA
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: isValidAge ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isValidAge ? const Color(0xFFBFDBFE) : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 16,
+                                    color: isValidAge ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      isValidAge
+                                          ? 'Faixa etária automática: $classifiedGroup'
+                                          : 'A faixa etária (4–7 ou 8–11 anos) será classificada automaticamente pela idade.',
+                                      style: TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: isValidAge ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 5. PROTEGER DADOS SENSÍVEIS (ALERGIAS / CUIDADOS ESPECIAIS OPCIONAIS E RESTRITOS)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () {
+                                      setDialogState(() {
+                                        showSensitiveSection = !showSensitiveSection;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.lock_person_rounded, size: 17, color: Color(0xFFD97706)),
+                                          const SizedBox(width: 8),
+                                          const Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Alergias e Cuidados Especiais (Opcional)',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Fredoka',
+                                                    fontSize: 12.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF92400E),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Acesso restrito a professores e responsáveis autorizados',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Nunito',
+                                                    fontSize: 11,
+                                                    color: Color(0xFFB45309),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            showSensitiveSection
+                                                ? Icons.keyboard_arrow_up_rounded
+                                                : Icons.keyboard_arrow_down_rounded,
+                                            color: const Color(0xFFD97706),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  if (showSensitiveSection)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                      child: TextField(
+                                        controller: alertController,
+                                        style: const TextStyle(fontFamily: 'Nunito', fontSize: 14),
+                                        maxLines: 2,
+                                        decoration: InputDecoration(
+                                          hintText: 'Ex: Alergia a amendoim / intolerância à lactose...',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFFDE68A)),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // 1. RODAPÉ FIXO DE AÇÕES (CANCELAR + SALVAR ALUNO)
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Row(
+                        children: [
+                          if (student != null) ...[
                             TextButton(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: isSaving
+                                  ? null
+                                  : () async {
+                                      await DatabaseHelper.instance.deleteStudent(student.id!);
+                                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(this.context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('🗑️ Aluno "${student.name}" removido.'),
+                                            backgroundColor: Colors.red.shade700,
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                        _loadStudents();
+                                      }
+                                    },
+                              style: TextButton.styleFrom(
+                                minimumSize: Size.zero,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              ),
                               child: const Text(
-                                'Cancelar',
+                                'Excluir',
                                 style: TextStyle(
                                   fontFamily: 'Fredoka',
-                                  color: Color(0xFF64748B),
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: isFormValid
-                                  ? () async {
-                                      final alert = alertController.text.trim();
-                                      final newStudent = Student(
-                                        id: student?.id,
-                                        name: name,
-                                        age: age,
-                                        alertMessage: alert.isEmpty ? null : alert,
-                                        points: student?.points ?? 0,
-                                        photoUrl: photoUrl,
-                                        avatarPath: student?.avatarPath,
-                                        turma: student?.turma,
-                                        teamId: student?.teamId,
-                                        birthDate: student?.birthDate,
-                                      );
-
-                                      if (student == null) {
-                                        await DatabaseHelper.instance.insertStudent(newStudent);
-                                      } else {
-                                        await DatabaseHelper.instance.updateStudent(newStudent);
-                                      }
-
-                                      if (context.mounted) Navigator.pop(context);
-                                      _loadStudents();
-                                    }
-                                  : null,
+                            const SizedBox(width: 6),
+                          ],
+                          OutlinedButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              foregroundColor: const Color(0xFF64748B),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(fontFamily: 'Fredoka', fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: isSaving ? null : handleSaveStudent,
+                              icon: isSaving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.check_circle_rounded, size: 18),
+                              label: Text(
+                                isSaving ? 'Salvando...' : 'Salvar Aluno',
+                                style: const TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isFormValid ? AppColors.azulCeleste : Colors.grey.shade300,
-                                foregroundColor: isFormValid ? Colors.white : Colors.grey.shade500,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                minimumSize: const Size(0, 46),
+                                backgroundColor: AppColors.azulCeleste,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 elevation: 0,
                               ),
-                              child: const Text(
-                                'Salvar',
-                                style: TextStyle(
-                                  fontFamily: 'Fredoka',
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             );
@@ -535,7 +956,7 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                       alignment: Alignment.bottomRight,
                       children: [
                         CircleAvatar(
-                          radius: 28,
+                          radius: 26,
                           backgroundColor: Colors.transparent,
                           backgroundImage: _getStudentImage(student),
                         ),
@@ -543,18 +964,21 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                           Positioned(
                             right: -2,
                             bottom: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2.0),
-                              decoration: const BoxDecoration(
-                                color: AppColors.alerta,
-                                shape: BoxShape.circle,
+                            child: GestureDetector(
+                              onTap: () => _showRestrictedCareDialog(student),
+                              child: Container(
+                                padding: const EdgeInsets.all(3.0),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.alerta,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.lock_person_rounded, color: Colors.white, size: 11),
                               ),
-                              child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 10),
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Text(
                       student.name,
                       textAlign: TextAlign.center,
@@ -567,8 +991,19 @@ class _ChamadaScreenState extends State<ChamadaScreen> {
                         color: textCol,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      student.ageGroupLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                     if (statusWidget != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       statusWidget,
                     ],
                   ],

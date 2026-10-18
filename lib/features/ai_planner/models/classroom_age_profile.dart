@@ -1,3 +1,5 @@
+import '../../../core/utils/safe_converters.dart';
+
 class ClassroomAgeProfile {
   final int minAge;
   final int maxAge;
@@ -22,10 +24,10 @@ class ClassroomAgeProfile {
 
   factory ClassroomAgeProfile.fromMap(Map<String, dynamic> map) {
     return ClassroomAgeProfile(
-      minAge: map['minAge'] ?? 4,
-      maxAge: map['maxAge'] ?? 11,
-      isMixedAge: map['isMixedAge'] ?? false,
-      activeBands: List<String>.from(map['activeBands'] ?? []),
+      minAge: safeInt(map['minAge'], fallback: 4),
+      maxAge: safeInt(map['maxAge'], fallback: 11),
+      isMixedAge: safeBool(map['isMixedAge'], fallback: false),
+      activeBands: safeStringList(map['activeBands']),
     );
   }
 }

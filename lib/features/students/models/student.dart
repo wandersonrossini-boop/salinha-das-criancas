@@ -23,6 +23,18 @@ class Student {
     this.birthDate,
   });
 
+  /// Classifica automaticamente a criança pela faixa etária oficial (4–7 ou 8–11 anos).
+  static String classifyAgeGroup(int age) {
+    if (age >= 4 && age <= 7) {
+      return '4–7 anos';
+    } else if (age >= 8 && age <= 11) {
+      return '8–11 anos';
+    }
+    return '$age anos';
+  }
+
+  String get ageGroupLabel => classifyAgeGroup(age);
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -39,17 +51,31 @@ class Student {
   }
 
   factory Student.fromMap(Map<String, dynamic> map) {
+    int? parseId(dynamic val) {
+      if (val == null) return null;
+      if (val is int) return val;
+      if (val is num) return val.toInt();
+      return int.tryParse(val.toString());
+    }
+
+    int parseInt(dynamic val, [int fallback = 0]) {
+      if (val == null) return fallback;
+      if (val is int) return val;
+      if (val is num) return val.toInt();
+      return int.tryParse(val.toString()) ?? fallback;
+    }
+
     return Student(
-      id: map['id'],
-      name: map['name'],
-      age: map['age'],
-      avatarPath: map['avatarPath'],
-      alertMessage: map['alertMessage'],
-      points: map['points'] ?? 0,
-      photoUrl: map['photoUrl'],
-      turma: map['turma'],
-      teamId: map['teamId'],
-      birthDate: map['birthDate'],
+      id: parseId(map['id']),
+      name: (map['name'] ?? 'Aluno').toString(),
+      age: parseInt(map['age'], 6),
+      avatarPath: map['avatarPath']?.toString(),
+      alertMessage: map['alertMessage']?.toString(),
+      points: parseInt(map['points'], 0),
+      photoUrl: map['photoUrl']?.toString(),
+      turma: map['turma']?.toString(),
+      teamId: parseId(map['teamId']),
+      birthDate: map['birthDate']?.toString(),
     );
   }
 }
